@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
 
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/wizard/1?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back</a>
+    <a href="/wizard/1?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('chevron-left', size=14, color='#6B7280') }}
+      <span>Back</span>
+    </a>
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
@@ -13,7 +17,7 @@
 <div class="container-wizard">
   <!-- Stepper Row -->
   <div class="stepper-bar">
-    <span class="step-node completed">✓ Tell your story</span>
+    <span class="step-node completed">{{ icon('check', size=12, color='#059669') }} Tell your story</span>
     <span class="step-node active">● Upload evidence</span>
     <span class="step-node">○ Review application</span>
     <span class="step-node">○ Gaps & contradictions</span>
@@ -21,30 +25,39 @@
     <span class="step-node">○ Readiness</span>
   </div>
 
+  {% if gated %}
+  <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; color: #DC2626; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+    {{ icon('alert', size=18, color='#DC2626') }}
+    <span><strong>Processing Required:</strong> Please click "Process & Score" to extract and synthesize the multimodal truth layer before proceeding.</span>
+  </div>
+  {% endif %}
+
   <!-- Header -->
   <div style="text-align: center; max-width: 640px; margin: 0 auto 24px auto;">
     <h2 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Upload your documents</h2>
-    <p style="font-size: 14px; color: #6B7280; margin: 0 0 4px 0;">Trade licence and workshop photos help verify your business.</p>
+    <p style="font-size: 14px; color: #6B7280; margin: 0 0 4px 0;">Trade licence and workshop photos help verify your business. (Max 50MB per file)</p>
     <p style="font-size: 13.5px; color: #4B5563; font-family: 'Noto Sans Ethiopic'; margin: 0;">የንግድ ፈቃድ እና የስራ ቦታ ፎቶዎችን ይጫኑ::</p>
   </div>
+
+  <div id="step2-alert-box" style="margin-bottom: 16px;"></div>
 
   <form id="upload-form" action="/api/process" method="POST" enctype="multipart/form-data">
     <div class="upload-cards-grid">
       <!-- Card 1: Trade Licence -->
       <div class="upload-dropzone">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <span style="font-size: 20px;">📄</span>
+          {{ icon('doc', size=20, color='#059669') }}
           <span style="font-size: 14px; font-weight: 700; color: #111827;">Trade Licence Photo</span>
         </div>
         <div style="font-size: 11px; color: #6B7280; font-family: 'Noto Sans Ethiopic'; margin-bottom: 8px;">የንግድ ፈቃድ ፎቶ</div>
         <div style="font-size: 12px; color: #6B7280; line-height: 1.4;">Official municipal or federal business registration certificate.</div>
 
         <div class="dropzone-box" onclick="document.getElementById('licence-input').click();">
-          <input type="file" id="licence-input" name="license" accept=".jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'lic-preview')">
+          <input type="file" id="licence-input" name="license" accept=".jpg,.jpeg,.png,.webp,.pdf" style="display: none;" onchange="previewFile(this, 'lic-preview')">
           <div id="lic-preview">
-            <span style="font-size: 22px; color: #059669;">⬆️</span>
+            {{ icon('upload', size=24, color='#059669') }}
             <div style="font-size: 12px; font-weight: 600; color: #059669; margin-top: 6px;">Choose file or drag here</div>
-            <div style="font-size: 11px; color: #9CA3AF; margin-top: 2px;">JPG, PNG up to 10MB</div>
+            <div style="font-size: 11px; color: #9CA3AF; margin-top: 2px;">JPG, PNG up to 50MB</div>
           </div>
         </div>
       </div>
@@ -52,80 +65,60 @@
       <!-- Card 2: Workshop Photo -->
       <div class="upload-dropzone">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-          <span style="font-size: 20px;">📸</span>
+          {{ icon('camera', size=20, color='#7C3AED') }}
           <span style="font-size: 14px; font-weight: 700; color: #111827;">Workshop / Facility Photo</span>
         </div>
         <div style="font-size: 11px; color: #6B7280; font-family: 'Noto Sans Ethiopic'; margin-bottom: 8px;">የስራ ቦታ ፎቶ</div>
         <div style="font-size: 12px; color: #6B7280; line-height: 1.4;">Photo showing your equipment, production space, or team members.</div>
 
         <div class="dropzone-box" onclick="document.getElementById('workshop-input').click();">
-          <input type="file" id="workshop-input" name="workshop" accept=".jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'work-preview')">
+          <input type="file" id="workshop-input" name="workshop" accept=".jpg,.jpeg,.png,.webp" style="display: none;" onchange="previewFile(this, 'work-preview')">
           <div id="work-preview">
-            <span style="font-size: 22px; color: #059669;">⬆️</span>
+            {{ icon('upload', size=24, color='#059669') }}
             <div style="font-size: 12px; font-weight: 600; color: #059669; margin-top: 6px;">Choose file or drag here</div>
-            <div style="font-size: 11px; color: #9CA3AF; margin-top: 2px;">JPG, PNG up to 10MB</div>
+            <div style="font-size: 11px; color: #9CA3AF; margin-top: 2px;">JPG, PNG up to 50MB</div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Quick Unseen Applicant Button -->
-    <div style="text-align: center; margin-bottom: 32px;">
+    <div style="text-align: center; margin-bottom: 24px;">
       <button type="button" class="btn btn-secondary" onclick="loadUnseenPreset()">
-        🎲 Load Unseen Applicant Test Assets
+        {{ icon('refresh', size=16, color='#111827') }}
+        <span>Load Unseen Applicant Test Assets</span>
       </button>
     </div>
+
+    <!-- Processing Spinner & 4-Step Summary Chips -->
+    <div id="process-spinner-area" style="display: none; text-align: center; margin: 16px 0;">
+      <div style="font-size: 13px; color: #059669; font-weight: 600;">
+        {{ icon('sparkles', size=16, color='#059669') }}
+        <span>Analyzing multimodal truth layer and cross-evidence corroboration...</span>
+      </div>
+    </div>
+
+    <div id="process-summary-chips" style="display: none; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 16px 0;"></div>
   </form>
 </div>
 
-<!-- Fixed Bottom Bar -->
+<!-- Fixed Bottom Bar with Single Primary Action -->
 <div class="fixed-bottom-bar">
-  <a href="/wizard/1?lang={{ lang }}" style="font-size: 13px; font-weight: 600; color: #6B7280;">‹ Back to Step 1</a>
-  <button type="button" class="btn btn-primary" onclick="submitProcess()">
-    ⚡ Process & Continue ›
-  </button>
+  <a href="/wizard/1?lang={{ lang }}" style="font-size: 13px; font-weight: 600; color: #6B7280; display: inline-flex; align-items: center; gap: 4px;">
+    {{ icon('chevron-left', size=14, color='#6B7280') }}
+    <span>Back to Step 1</span>
+  </a>
+
+  <div style="display: flex; gap: 10px;">
+    <button type="button" id="btn-process-main" class="btn btn-primary" onclick="submitProcess()">
+      {{ icon('sparkles', size=16, color='#FFFFFF') }}
+      <span>Process & Score ›</span>
+    </button>
+
+    <a id="btn-step2-continue" href="/wizard/3?lang={{ lang }}" class="btn btn-secondary" style="display: {{ 'inline-flex' if session.processed else 'none' }}; align-items: center; gap: 4px;">
+      <span>Continue to Step 3</span>
+      {{ icon('chevron-right', size=14, color='#111827') }}
+    </a>
+  </div>
 </div>
-
-<script>
-function previewFile(input, targetId) {
-  if (input.files && input.files[0]) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      document.getElementById(targetId).innerHTML = `
-        <img src="${e.target.result}" style="max-height: 120px; border-radius: 8px; margin-bottom: 6px;">
-        <div style="font-size: 12px; font-weight: 600; color: #059669;">✓ ${input.files[0].name}</div>
-      `;
-    }
-    reader.readAsDataURL(input.files[0]);
-  }
-}
-
-async function loadUnseenPreset() {
-  alert("Loaded Unseen Applicant test assets! Click Process & Continue to execute full multimodal extraction.");
-  document.getElementById('lic-preview').innerHTML = '<div style="font-size: 13px; color: #059669; font-weight: 700;">✓ Unseen License Attached (license_smudged.jpg)</div>';
-  document.getElementById('work-preview').innerHTML = '<div style="font-size: 13px; color: #059669; font-weight: 700;">✓ Unseen Workshop Attached (workshop_berbere.jpg)</div>';
-}
-
-async function submitProcess() {
-  const form = document.getElementById('upload-form');
-  const formData = new FormData(form);
-  
-  const btn = event.target;
-  btn.innerText = "⏳ Processing multimodal truth layer...";
-  btn.disabled = true;
-
-  try {
-    const res = await fetch("/api/process", {
-      method: "POST",
-      body: formData
-    });
-    const data = await res.json();
-    window.location.href = "/wizard/3";
-  } catch (err) {
-    alert("Error processing dossier: " + err.message);
-    btn.innerText = "⚡ Process & Continue ›";
-    btn.disabled = false;
-  }
-}
-</script>
 {% endblock %}

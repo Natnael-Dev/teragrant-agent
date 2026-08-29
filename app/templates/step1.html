@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
 
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ TeraGrant Agent</a>
+    <a href="/?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('chevron-left', size=14, color='#6B7280') }}
+      <span>TeraGrant Agent</span>
+    </a>
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
@@ -21,6 +25,13 @@
     <span class="step-node">○ Readiness</span>
   </div>
 
+  {% if gated %}
+  <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; color: #DC2626; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+    {{ icon('alert', size=18, color='#DC2626') }}
+    <span><strong>Intake Required:</strong> Please record or upload your business story before advancing to evidence upload.</span>
+  </div>
+  {% endif %}
+
   <!-- Header -->
   <div style="text-align: center; max-width: 640px; margin: 0 auto 16px auto;">
     <h2 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Tell us about your business</h2>
@@ -35,10 +46,28 @@
     </div>
   </div>
 
-  <!-- Recorder Block (IDLE: Grey circle + static grey bars | RECORDING: Red pulsing circle + red animated waveform) -->
+  <!-- Microphone Fallback Notice -->
+  <div id="mic-unavailable-warning" style="display: none; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 12px 16px; margin: 0 auto 16px auto; max-width: 520px; font-size: 13px; color: #B45309;">
+    {{ icon('alert', size=16, color='#B45309') }}
+    <span>Microphone access is unavailable in this environment. Please use the file upload option below.</span>
+  </div>
+
+  <!-- Classified Error Card -->
+  <div id="transcribe-error-card" style="display: none; background: #FEF2F2; border: 1px solid #F87171; border-radius: 12px; padding: 16px; margin: 0 auto 20px auto; max-width: 540px; text-align: left;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #DC2626; margin-bottom: 4px;">
+      {{ icon('alert', size=16, color='#DC2626') }}
+      <span id="error-card-title">TRANSCRIPTION_ERROR</span>
+    </div>
+    <div id="error-card-msg" style="font-size: 13px; color: #991B1B; margin-bottom: 6px;"></div>
+    <div style="font-size: 12px; color: #B91C1C; background: #FEE2E2; padding: 6px 10px; border-radius: 6px;">
+      <strong>Advice:</strong> <span id="error-card-advice"></span>
+    </div>
+  </div>
+
+  <!-- Recorder Block -->
   <div class="recorder-wrapper">
     <div class="record-circle-96" id="record-circle">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      {{ icon('mic', size=36, color='#6B7280') }}
     </div>
 
     <!-- 24 Waveform Bars -->
@@ -51,9 +80,10 @@
     <div class="recorder-caption" id="record-caption">Tap to record or speak</div>
 
     <!-- Upload voice note link -->
-    <div style="margin-top: 14px;">
-      <label for="audio-file-input" style="font-size: 12px; color: #6B7280; cursor: pointer; text-decoration: underline;">
-        or upload a voice note (.mp3, .wav, .m4a, .ogg, .oga, .webm)
+    <div id="audio-upload-wrapper" style="margin-top: 14px;">
+      <label for="audio-file-input" style="font-size: 12px; color: #6B7280; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
+        {{ icon('upload', size=14, color='#6B7280') }}
+        <span>or upload a voice note (.mp3, .wav, .m4a, .ogg, .oga, .webm up to 50MB)</span>
       </label>
       <input type="file" id="audio-file-input" accept=".mp3,.wav,.m4a,.ogg,.oga,.webm" style="display: none;">
     </div>
@@ -61,7 +91,10 @@
 
   <!-- WhatsApp-style Speech Bubble with Fact Chips -->
   <div class="whatsapp-bubble" id="transcript-bubble" style="display: {{ 'block' if session.transcript else 'none' }};">
-    <div class="whatsapp-bubble-title">✓ Verified Audio Extraction</div>
+    <div class="whatsapp-bubble-title" style="display: flex; align-items: center; gap: 4px;">
+      {{ icon('check', size=14, color='#059669') }}
+      <span>Verified Audio Extraction</span>
+    </div>
     <div class="whatsapp-transcript" id="transcript-text">"{{ session.transcript or '' }}"</div>
     <div class="fact-chips-row" id="fact-chips">
       {% for chip in session.chips or [] %}
@@ -73,23 +106,30 @@
   <!-- Clearly Visible Guided Interview Link Button -->
   <div style="text-align: center; margin-top: 32px;">
     <a href="/wizard/interview?lang={{ lang }}" class="btn-green-link">
-      🎙 Need help? Let the AI interview you step by step →
+      {{ icon('mic', size=16, color='#059669') }}
+      <span>Need help? Let the AI interview you step by step →</span>
     </a>
   </div>
 </div>
 
 <!-- Fixed Bottom Bar -->
 <div class="fixed-bottom-bar">
-  <a href="/?lang={{ lang }}" style="font-size: 13px; font-weight: 600; color: #6B7280;">‹ Back to home</a>
+  <a href="/?lang={{ lang }}" style="font-size: 13px; font-weight: 600; color: #6B7280; display: inline-flex; align-items: center; gap: 4px;">
+    {{ icon('chevron-left', size=14, color='#6B7280') }}
+    <span>Back to home</span>
+  </a>
   
   <div class="black-pill">
-    <span style="color: #9CA3AF; cursor: pointer;" onclick="location.reload();">✕ Cancel</span>
+    <span style="color: #9CA3AF; cursor: pointer;" onclick="location.reload();">Cancel</span>
     <span>••••••••</span>
-    <span style="color: #059669;">✓ Confirm</span>
+    <span style="color: #059669; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('check', size=12, color='#059669') }} Confirm
+    </span>
   </div>
 
   <a id="btn-continue" href="/wizard/2?lang={{ lang }}" class="btn btn-primary" style="{{ 'opacity:0.5; cursor:not-allowed;' if not session.transcript else '' }}" {% if not session.transcript %}disabled{% endif %}>
-    Continue ›
+    <span>Continue</span>
+    {{ icon('chevron-right', size=14, color='#FFFFFF') }}
   </a>
 </div>
 {% endblock %}

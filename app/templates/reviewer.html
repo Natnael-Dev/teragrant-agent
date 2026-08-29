@@ -1,24 +1,48 @@
 {% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
 
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Home</a>
+    <a href="/" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('chevron-left', size=14, color='#6B7280') }}
+      <span>Home</span>
+    </a>
     <span style="color: #E5E7EB;">|</span>
     <span>Reviewer Batch Evaluation & Portfolio Defense</span>
   </div>
-  <div>
-    <a href="/evidence" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none;">Evidence Library ›</a>
+  <div style="display: flex; align-items: center; gap: 14px;">
+    <a href="/evidence" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('doc', size=14, color='#059669') }}
+      <span>Evidence Library ›</span>
+    </a>
   </div>
 </div>
 
-<div class="container-wizard" style="max-width: 960px;">
-  <div style="margin-bottom: 24px;">
-    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Portfolio Evaluation & Committee Defense</h2>
-    <p style="font-size: 14px; color: #6B7280; margin: 0;">Deterministic ranking across 12 SME applicant proposals with verifiable evidence justifications.</p>
+<div class="container-wizard" style="max-width: 1040px; padding-bottom: 120px;">
+  
+  <!-- Header & Source Toggle Pills -->
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Portfolio Evaluation & Committee Defense</h2>
+      <p style="font-size: 14px; color: #6B7280; margin: 0;">Deterministic ranking across SME applicant proposals with verifiable epistemic defense dossiers.</p>
+    </div>
+
+    <!-- Source Toggle Pills -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span style="font-size: 12px; font-weight: 600; color: #6B7280;">Data Source:</span>
+      <div class="seg">
+        <a href="/reviewer?source=session" class="{{ 'active' if source == 'session' else '' }}">
+          Session (Real {{ session_count }})
+        </a>
+        <a href="/reviewer?source=demo" class="{{ 'active' if source == 'demo' else '' }}">
+          Demo Benchmark (12)
+        </a>
+      </div>
+    </div>
   </div>
 
-  <!-- 6 KPI Cards -->
+  <!-- 6 Dynamic KPI Cards -->
   <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px;">
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
       <div style="font-size: 10px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Total Batch</div>
@@ -46,35 +70,233 @@
     </div>
   </div>
 
-  <!-- Ranked Shortlist List -->
-  <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px;">
-    {% if shortlist and shortlist.companies %}
-    {% for comp in shortlist.companies %}
-    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 18px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-        <span style="font-size: 16px; font-weight: 700; color: #111827;">Rank #{{ comp.rank }}: {{ comp.business_name }}</span>
-        <span style="font-size: 16px; font-weight: 800; color: #059669;">{{ comp.total_score }} / 100 pts</span>
-      </div>
-      <div style="font-size: 12px; color: #6B7280; margin-bottom: 10px;">
-        Track: <b>{{ comp.grid_variant.value }}</b> • Status: <span class="chip chip-verified">Shortlisted</span>
-      </div>
-      <details style="font-size: 13px; color: #374151; cursor: pointer; background: #F9FAFB; padding: 12px; border-radius: 8px;">
-        <summary style="font-weight: 600; color: #059669;">🛡️ Why this rank? — Executive Defense & Audit Trail</summary>
-        <p style="margin: 8px 0 6px 0;"><strong>Executive Justification:</strong><br>{{ comp.justification }}</p>
-        {% if comp.site_visit_questions %}
-        <div style="margin-top: 8px;">
-          <strong>Traceable Site-Visit Due Diligence Questions:</strong>
-          <ul style="margin: 4px 0 0 0; padding-left: 20px;">
-            {% for q in comp.site_visit_questions %}
-            <li>{{ q }}</li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-      </details>
+  <!-- Tab Switcher (Figma 20/21 vs Figma 22) -->
+  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E5E7EB; margin-bottom: 24px;">
+    <div style="display: flex; gap: 8px;">
+      <button type="button" id="btn-tab-ranking" class="seg-btn active" onclick="switchReviewerTab('ranking')" style="padding: 10px 18px; border: 0; background: transparent; font-size: 13px; font-weight: 700; color: #111827; border-bottom: 2px solid #059669; cursor: pointer;">
+        1. Batch Ranking & Committee Defense
+      </button>
+      <button type="button" id="btn-tab-detail" class="seg-btn" onclick="switchReviewerTab('detail')" style="padding: 10px 18px; border: 0; background: transparent; font-size: 13px; font-weight: 600; color: #6B7280; cursor: pointer;">
+        2. Scoring Detail & Sensitivity
+      </button>
     </div>
-    {% endfor %}
+
+    <!-- Export Shortlist Action -->
+    <a href="/api/reviewer/export?source={{ source }}" class="btn btn-secondary" style="height: 36px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;">
+      {{ icon('download', size=14, color='#111827') }}
+      <span>Export Shortlist (JSON)</span>
+    </a>
+  </div>
+
+  <!-- TAB 1: BATCH RANKING OVERVIEW (FIGMA 20 & 21) -->
+  <div id="tab-ranking-overview">
+    {% if shortlist and shortlist.companies %}
+    
+    <!-- Executive Batch Summary Banner -->
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-left: 4px solid #059669; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+      <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 4px;">Executive Evaluation Summary</div>
+      <div style="font-size: 13px; color: #374151; line-height: 1.5;">{{ shortlist.batch_summary }}</div>
+    </div>
+
+    <!-- Ranked Shortlist List with Full Figma 21 Defense Expanders -->
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      {% for comp in shortlist.companies %}
+      <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
+        
+        <!-- Header Row -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="background: #111827; color: #FFFFFF; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">#{{ comp.rank }}</span>
+              <span style="font-size: 17px; font-weight: 800; color: #111827;">{{ comp.business_name }}</span>
+            </div>
+            <div style="font-size: 12px; color: #6B7280; margin-top: 4px;">
+              Track: <b>{{ comp.grid_variant.value if comp.grid_variant.value is defined else comp.grid_variant }}</b>
+              • Grant Target: <strong style="color: #111827;">{{ "{:,.0f}".format(comp.grant_etb) }} ETB</strong>
+            </div>
+          </div>
+
+          <div style="text-align: right;">
+            <div style="font-size: 22px; font-weight: 800; color: #059669;">
+              {{ comp.total_score }} <span style="font-size: 13px; color: #6B7280;">/ 100 pts</span>
+            </div>
+            <span class="chip chip-verified" style="margin-top: 4px;">
+              {{ icon('check', size=11, color='#059669') }} Shortlisted
+            </span>
+          </div>
+        </div>
+
+        <!-- Figma 21 Full Defense Expander -->
+        <details style="margin-top: 14px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px; font-size: 13px;">
+          <summary style="font-weight: 700; color: #059669; cursor: pointer; display: flex; align-items: center; gap: 6px; outline: none;">
+            {{ icon('shield', size=16, color='#059669') }}
+            <span>Why this rank? — Full Committee Defense Dossier (Figma 21)</span>
+          </summary>
+
+          <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 14px;">
+            
+            <!-- 1. Executive Justification -->
+            <div>
+              <div style="font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; margin-bottom: 4px;">Executive Rank Justification</div>
+              <p style="margin: 0; color: #1F2937; line-height: 1.5; font-size: 13px;">{{ comp.justification }}</p>
+            </div>
+
+            <!-- 2. Criteria Score Breakdown Bars -->
+            <div>
+              <div style="font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; margin-bottom: 8px;">9-Criteria Rubric Breakdown</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;">
+                {% for cs in comp.criteria_scores[:6] %}
+                <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
+                    <span>{{ cs.criterion.value if cs.criterion.value is defined else cs.criterion }}</span>
+                    <span style="color: #059669;">{{ cs.awarded_points }} / {{ cs.max_points }} pts</span>
+                  </div>
+                  <div style="background: #E5E7EB; height: 6px; border-radius: 3px; overflow: hidden;">
+                    <div style="background: #059669; height: 100%; width: {{ (cs.awarded_points / cs.max_points) * 100 }}%;"></div>
+                  </div>
+                  <div style="font-size: 11px; color: #6B7280; margin-top: 4px;">{{ cs.reasoning }}</div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- 3. Strongest Evidence (Green) vs Unverified Claims (Amber) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 12px;">
+                <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                  {{ icon('check', size=13, color='#059669') }} Strongest Evidence (Document Verified)
+                </div>
+                <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #065F46; line-height: 1.45;">
+                  {% for ev in comp.strongest_evidence %}
+                  <li>{{ ev }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+
+              <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 12px;">
+                <div style="font-size: 11px; font-weight: 700; color: #B45309; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                  {{ icon('alert', size=13, color='#B45309') }} Unverified Claims / Remaining Gaps
+                </div>
+                <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #92400E; line-height: 1.45;">
+                  {% for uc in comp.unverified_claims %}
+                  <li>{{ uc }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+
+            <!-- 4. Traceable Site Visit Questions -->
+            {% if comp.site_visit_questions %}
+            <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px;">
+              <div style="font-size: 11px; font-weight: 700; color: #374151; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                {{ icon('doc', size=13, color='#374151') }} Targeted Site Visit Questions (Q1..Q3)
+              </div>
+              <ul style="margin: 0; padding-left: 18px; font-size: 12.5px; color: #374151; line-height: 1.5;">
+                {% for q in comp.site_visit_questions %}
+                <li><strong>{{ q }}</strong></li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+
+            <!-- 5. Committee Consideration Banner -->
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: #059669;">
+              {{ icon('check', size=16, color='#059669') }}
+              <span>✓ Recommended for Investment Committee Consideration and Verification</span>
+            </div>
+
+          </div>
+        </details>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div style="background: #FFFFFF; border: 1px dashed #D1D5DB; border-radius: 16px; padding: 48px 24px; text-align: center;">
+      <div style="margin-bottom: 12px;">{{ icon('doc', size=36, color='#9CA3AF') }}</div>
+      <h3 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 6px 0;">No Active Session Dossier Found</h3>
+      <p style="font-size: 13px; color: #6B7280; max-width: 480px; margin: 0 auto 16px auto;">
+        To evaluate a live applicant, complete Wizard Steps 1-2 to synthesize a multimodal dossier, or switch to the Demo Benchmark tab above.
+      </p>
+      <a href="/wizard/1" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+        {{ icon('mic', size=16, color='#FFFFFF') }}
+        <span>Start Wizard Intake</span>
+      </a>
+    </div>
     {% endif %}
+  </div>
+
+  <!-- TAB 2: SCORING DETAIL & SENSITIVITY (FIGMA 22) -->
+  <div id="tab-scoring-detail" style="display: none;">
+    
+    <!-- 3-Track Grid Comparison Card -->
+    {% if grid_comparison %}
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="font-size: 16px; font-weight: 700; margin: 0;">Multi-Track Comparison</h3>
+        <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Recommended: Women & Youth Led</span>
+      </div>
+      <p style="font-size: 13px; color: #6B7280; margin: 0 0 16px 0;">
+        {{ grid_comparison.routing_reason }}
+      </p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase;">General SME</div>
+          <div style="font-size: 22px; font-weight: 800; color: #111827; margin: 4px 0;">{{ grid_comparison.variant_scores.GENERAL_SME }} <span style="font-size: 12px; color: #6B7280;">/100</span></div>
+          <div style="font-size: 11px; color: #6B7280;">Standard Allocation</div>
+        </div>
+
+        <div style="background: #ECFDF5; border: 2px solid #059669; border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">Women & Youth Led</div>
+          <div style="font-size: 22px; font-weight: 800; color: #059669; margin: 4px 0;">{{ grid_comparison.variant_scores.WOMEN_AND_YOUTH_LED_SME }} <span style="font-size: 12px; color: #059669;">/100</span></div>
+          <div style="font-size: 11px; color: #059669; font-weight: 700;">★ Recommended Track</div>
+        </div>
+
+        <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px; text-align: center;">
+          <div style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase;">Innovation & Tech</div>
+          <div style="font-size: 22px; font-weight: 800; color: #111827; margin: 4px 0;">{{ grid_comparison.variant_scores.INNOVATION_AND_TECH_SME }} <span style="font-size: 12px; color: #6B7280;">/100</span></div>
+          <div style="font-size: 11px; color: #6B7280;">Technology Novelty</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Violet Potential Improvements Panel (Figma 22) -->
+    <div style="background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          {{ icon('sparkles', size=18, color='#7C3AED') }}
+          <span style="font-size: 16px; font-weight: 800; color: #4C1D95;">POTENTIAL IMPROVEMENTS & GAP RECOVERY</span>
+        </div>
+        <span style="background: #7C3AED; color: #FFFFFF; font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 20px;">
+          POTENTIAL +12 pts Recoverable
+        </span>
+      </div>
+      <p style="font-size: 13px; color: #5B21B6; margin: 0 0 16px 0;">
+        Specific evidential submissions that will deterministically elevate the applicant rubric score before committee sign-off:
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: #FFFFFF; border: 1px solid #DDD6FE; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: #111827;">+6 pts — Financial Viability & Turnover Record</div>
+            <div style="font-size: 12px; color: #6B7280;">From: Provide 2023 sales tax declaration receipt or official bank ledger statement.</div>
+          </div>
+          <span class="chip chip-missing">Missing Gap</span>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #DDD6FE; border-radius: 10px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 13px; font-weight: 700; color: #111827;">+6 pts — Job Creation & Staff Corroboration</div>
+            <div style="font-size: 12px; color: #6B7280;">From: Submit signed employee attendance ledger / payroll register to substantiate 8 workers.</div>
+          </div>
+          <span class="chip chip-contradicted">Photo Discrepancy</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}

@@ -1,14 +1,21 @@
 {% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
 
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/reviewer" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Reviewer</a>
+    <a href="/reviewer" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('chevron-left', size=14, color='#6B7280') }}
+      <span>Reviewer</span>
+    </a>
     <span style="color: #E5E7EB;">|</span>
     <span>Evidence Library & Multimodal Provenance</span>
   </div>
   <div>
-    <a href="/" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none;">Applicant View ›</a>
+    <a href="/" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+      <span>Applicant View</span>
+      {{ icon('chevron-right', size=12, color='#059669') }}
+    </a>
   </div>
 </div>
 
@@ -33,21 +40,21 @@
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Trade License Scan</td>
           <td style="padding: 12px 0; color: #6B7280;">Document (JPEG)</td>
-          <td style="padding: 12px 0;"><span class="chip chip-verified">Document Verified</span></td>
+          <td style="padding: 12px 0;"><span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span></td>
           <td style="padding: 12px 0;">Business Name, TIN, Registration Year</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">Verified (98%)</td>
         </tr>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Intake Audio Recording</td>
           <td style="padding: 12px 0; color: #6B7280;">Audio (WebM/MP3)</td>
-          <td style="padding: 12px 0;"><span class="chip chip-stated">Applicant Stated</span></td>
+          <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
           <td style="padding: 12px 0;">Location, Staff, Revenue, Machinery Need</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">Transcribed (92%)</td>
         </tr>
         <tr>
           <td style="padding: 12px 0; font-weight: 600;">Workshop Facility Photo</td>
           <td style="padding: 12px 0; color: #6B7280;">Image (JPEG)</td>
-          <td style="padding: 12px 0;"><span class="chip chip-inferred">AI Inferred</span></td>
+          <td style="padding: 12px 0;"><span class="chip chip-inferred">{{ icon('sparkles', size=11, color='#7C3AED') }} AI Inferred</span></td>
           <td style="padding: 12px 0;">Cleanliness, Workstations, Machinery State</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #7C3AED;">Inspected (88%)</td>
         </tr>

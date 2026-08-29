@@ -42,6 +42,7 @@ Return ONLY a valid JSON object matching the AudioTranscriptExtraction schema. T
 
 def extract_audio_story(
     audio_path: str,
+    target_language: Optional[str] = None,
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     client: Optional[Any] = None,

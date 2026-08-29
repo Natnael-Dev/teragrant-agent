@@ -1,9 +1,13 @@
 {% extends "base.html" %}
+{% from "partials/icons.html" import icon %}
 
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/wizard/4" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back</a>
+    <a href="/wizard/4?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
+      {{ icon('chevron-left', size=14, color='#6B7280') }}
+      <span>Back</span>
+    </a>
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
@@ -13,71 +17,111 @@
 <div class="container-wizard">
   <!-- Stepper Row -->
   <div class="stepper-bar">
-    <span class="step-node completed">✓ Tell your story</span>
-    <span class="step-node completed">✓ Upload evidence</span>
-    <span class="step-node completed">✓ Review application</span>
-    <span class="step-node completed">✓ Gaps & contradictions</span>
+    <span class="step-node completed">{{ icon('check', size=12, color='#059669') }} Tell your story</span>
+    <span class="step-node completed">{{ icon('check', size=12, color='#059669') }} Upload evidence</span>
+    <span class="step-node completed">{{ icon('check', size=12, color='#059669') }} Review application</span>
+    <span class="step-node completed">{{ icon('check', size=12, color='#059669') }} Gaps & contradictions</span>
     <span class="step-node active">● Declarations</span>
     <span class="step-node">○ Readiness</span>
   </div>
 
-  <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px; margin-bottom: 24px; color: #92400E; font-size: 13px;">
-    <strong>⚠️ Critical Integrity Mandate:</strong> Declarations are NEVER automatically ticked by AI. Each declaration requires individual manual review and verifiable verbal or written consent.
+  <!-- Red Never-Auto-Tick Integrity Banner -->
+  <div style="background: #FEF2F2; border: 1px solid #F87171; border-left: 4px solid #DC2626; border-radius: 12px; padding: 16px; margin-bottom: 24px; color: #991B1B; font-size: 13px; display: flex; align-items: flex-start; gap: 10px;">
+    <div style="margin-top: 2px;">{{ icon('alert', size=18, color='#DC2626') }}</div>
+    <div>
+      <strong>Critical Integrity Mandate:</strong> Declarations are NEVER automatically ticked by AI. Each declaration requires individual manual review and verifiable verbal or written consent.
+    </div>
   </div>
 
   <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px;">
+    
     <!-- Declaration 1 -->
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 18px;">
-      <div style="display: flex; align-items: flex-start; gap: 12px;">
-        <input type="checkbox" id="dec1" style="width: 18px; height: 18px; margin-top: 2px;">
-        <div>
-          <label for="dec1" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
-            1. Accuracy of Information & True Representation
-          </label>
-          <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
-            I declare that all operational, financial, and employment claims provided in this dossier are true and complete.
-          </p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <input type="checkbox" id="declaration_01" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;" onchange="handleDeclarationCheckbox('declaration_01', this.checked)">
+          <div>
+            <label for="declaration_01" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
+              1. Accuracy of Information & True Representation
+            </label>
+            <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
+              I declare that all operational, financial, and employment claims provided in this dossier are true and complete.
+            </p>
+          </div>
         </div>
+        <span id="dec-status-declaration_01" class="chip chip-missing">Not given</span>
+      </div>
+
+      <div style="margin-top: 10px; margin-left: 30px;">
+        <button type="button" id="btn-voice-dec-declaration_01" class="btn btn-secondary" style="height: 32px; font-size: 11px; padding: 0 10px;" onclick="recordVerbalDeclaration('declaration_01')">
+          {{ icon('mic', size=13, color='#111827') }}
+          <span>Record verbal answer</span>
+        </button>
       </div>
     </div>
 
     <!-- Declaration 2 -->
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 18px;">
-      <div style="display: flex; align-items: flex-start; gap: 12px;">
-        <input type="checkbox" id="dec2" style="width: 18px; height: 18px; margin-top: 2px;">
-        <div>
-          <label for="dec2" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
-            2. Environmental & Labor Regulatory Compliance
-          </label>
-          <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
-            I confirm that the enterprise complies with local environmental guidelines and fair labor practices.
-          </p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <input type="checkbox" id="declaration_02" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;" onchange="handleDeclarationCheckbox('declaration_02', this.checked)">
+          <div>
+            <label for="declaration_02" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
+              2. Environmental & Labor Regulatory Compliance
+            </label>
+            <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
+              I confirm that the enterprise complies with local environmental guidelines and fair labor practices.
+            </p>
+          </div>
         </div>
+        <span id="dec-status-declaration_02" class="chip chip-missing">Not given</span>
+      </div>
+
+      <div style="margin-top: 10px; margin-left: 30px;">
+        <button type="button" id="btn-voice-dec-declaration_02" class="btn btn-secondary" style="height: 32px; font-size: 11px; padding: 0 10px;" onclick="recordVerbalDeclaration('declaration_02')">
+          {{ icon('mic', size=13, color='#111827') }}
+          <span>Record verbal answer</span>
+        </button>
       </div>
     </div>
 
     <!-- Declaration 3 -->
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 18px;">
-      <div style="display: flex; align-items: flex-start; gap: 12px;">
-        <input type="checkbox" id="dec3" style="width: 18px; height: 18px; margin-top: 2px;">
-        <div>
-          <label for="dec3" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
-            3. Non-Insolvency & Debt Default Confirmation
-          </label>
-          <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
-            The enterprise has no active bankruptcy or pending insolvency proceedings in Ethiopian courts.
-          </p>
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <input type="checkbox" id="declaration_03" style="width: 18px; height: 18px; margin-top: 2px; cursor: pointer;" onchange="handleDeclarationCheckbox('declaration_03', this.checked)">
+          <div>
+            <label for="declaration_03" style="font-weight: 700; font-size: 14px; color: #111827; display: block; cursor: pointer;">
+              3. Non-Insolvency & Debt Default Confirmation
+            </label>
+            <p style="font-size: 12px; color: #6B7280; margin: 4px 0 0 0;">
+              The enterprise has no active bankruptcy or pending insolvency proceedings in Ethiopian courts.
+            </p>
+          </div>
         </div>
+        <span id="dec-status-declaration_03" class="chip chip-missing">Not given</span>
+      </div>
+
+      <div style="margin-top: 10px; margin-left: 30px;">
+        <button type="button" id="btn-voice-dec-declaration_03" class="btn btn-secondary" style="height: 32px; font-size: 11px; padding: 0 10px;" onclick="recordVerbalDeclaration('declaration_03')">
+          {{ icon('mic', size=13, color='#111827') }}
+          <span>Record verbal answer</span>
+        </button>
       </div>
     </div>
+
   </div>
 </div>
 
 <!-- Fixed Bottom Bar -->
 <div class="fixed-bottom-bar">
-  <a href="/wizard/4" style="font-size: 13px; font-weight: 600; color: #6B7280;">‹ Back to Step 4</a>
-  <a href="/wizard/6" class="btn btn-primary">
-    Confirm & View Submission Readiness ›
+  <a href="/wizard/4?lang={{ lang }}" style="font-size: 13px; font-weight: 600; color: #6B7280; display: inline-flex; align-items: center; gap: 4px;">
+    {{ icon('chevron-left', size=14, color='#6B7280') }}
+    <span>Back to Step 4</span>
+  </a>
+  <a href="/wizard/6?lang={{ lang }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+    <span>Confirm & View Submission Readiness</span>
+    {{ icon('chevron-right', size=14, color='#FFFFFF') }}
   </a>
 </div>
 {% endblock %}

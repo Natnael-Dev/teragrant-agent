@@ -19,8 +19,12 @@ load_dotenv()
 # Fallback chain for automatic failover when a model returns 404 / retired / quota exceeded
 MODEL_FALLBACK_CHAIN: List[str] = [
     "gemini-2.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-3.5-flash",
+    "gemini-3.6-flash",
     "gemini-2.5-pro",
+    "gemini-3.1-pro-preview",
 ]
 
 
