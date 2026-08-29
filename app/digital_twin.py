@@ -5,20 +5,22 @@ Updates dynamically via JavaScript injection without Streamlit widget flickering
 """
 
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import streamlit.components.v1 as components
 
 
-def render_giz_form(session_data: Dict[str, Any], height: int = 750):
+def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int = 750):
     """
     Renders the official GIZ/sequa SME Application Form as an embedded HTML component.
     Populates fields via JavaScript and highlights detected data gaps in red.
+    When session_data is empty or None, renders in a pristine 'Awaiting Applicant Input' state.
 
     Args:
         session_data: Dictionary containing extracted field values and identified gap keys.
         height: Height of the component in pixels.
     """
-    payload_json = json.dumps(session_data, ensure_ascii=False)
+    data = session_data or {}
+    payload_json = json.dumps(data, ensure_ascii=False)
 
     html_content = f"""
     <!DOCTYPE html>
@@ -62,19 +64,20 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
                 margin-bottom: 14px;
             }}
             .form-title {{
-                font-size: 16px;
+                font-size: 15px;
                 font-weight: 700;
                 color: #1E3A8A;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }}
             .form-badge {{
-                background-color: #DBEAFE;
-                color: #1E40AF;
+                background-color: #F1F5F9;
+                color: #475569;
                 padding: 4px 8px;
                 border-radius: 4px;
                 font-weight: 600;
                 font-size: 11px;
+                border: 1px solid #E2E8F0;
             }}
             .section-title {{
                 font-size: 13px;
@@ -116,6 +119,10 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
                 color: #0F172A;
                 outline: none;
                 transition: all 0.2s ease-in-out;
+            }}
+            input::placeholder, textarea::placeholder {{
+                color: #94A3B8;
+                font-style: italic;
             }}
             input:focus, textarea:focus {{
                 border-color: #3B82F6;
@@ -163,7 +170,7 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
         <div class="form-container">
             <div class="form-header">
                 <div class="form-title">📋 GIZ SME Support Scheme — Application Form</div>
-                <div class="form-badge" id="syncStatus">⚡ Digital Twin: Synchronized</div>
+                <div class="form-badge" id="syncStatus">⚪ Awaiting Applicant Input</div>
             </div>
 
             <!-- SECTION 1.1: GENERAL COMPANY INFORMATION -->
@@ -171,21 +178,21 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
             <div class="grid-row">
                 <div class="grid-col grid-col-2">
                     <label id="lbl_company_name">Company Name / Legal Business Name</label>
-                    <input type="text" id="f_company_name" placeholder="Waiting for voice/license intake..." readonly>
+                    <input type="text" id="f_company_name" placeholder="Awaiting intake..." readonly>
                 </div>
                 <div class="grid-col">
                     <label id="lbl_tin_number">TIN Number (Tax ID)</label>
-                    <input type="text" id="f_tin_number" placeholder="e.g. 0012345678" readonly>
+                    <input type="text" id="f_tin_number" placeholder="Awaiting intake..." readonly>
                 </div>
             </div>
             <div class="grid-row">
                 <div class="grid-col">
                     <label id="lbl_address">Physical Address / City / Sub-City</label>
-                    <input type="text" id="f_address" placeholder="Waiting for intake..." readonly>
+                    <input type="text" id="f_address" placeholder="Awaiting intake..." readonly>
                 </div>
                 <div class="grid-col">
                     <label id="lbl_mobile">Contact Mobile / Telephone</label>
-                    <input type="text" id="f_mobile" placeholder="+251 9..." readonly>
+                    <input type="text" id="f_mobile" placeholder="Awaiting intake..." readonly>
                 </div>
             </div>
 
@@ -194,15 +201,15 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
             <div class="grid-row">
                 <div class="grid-col">
                     <label id="lbl_years_operation">Years in Operation</label>
-                    <input type="text" id="f_years_operation" placeholder="0 years" readonly>
+                    <input type="text" id="f_years_operation" placeholder="Awaiting intake..." readonly>
                 </div>
                 <div class="grid-col">
                     <label id="lbl_total_staff">Total Permanent Employees</label>
-                    <input type="text" id="f_total_staff" placeholder="0 staff" readonly>
+                    <input type="text" id="f_total_staff" placeholder="Awaiting intake..." readonly>
                 </div>
                 <div class="grid-col">
                     <label id="lbl_female_staff">Female Employees (Headcount)</label>
-                    <input type="text" id="f_female_staff" placeholder="0 female" readonly>
+                    <input type="text" id="f_female_staff" placeholder="Awaiting intake..." readonly>
                 </div>
             </div>
 
@@ -211,7 +218,7 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
             <div class="grid-row">
                 <div class="grid-col">
                     <label id="lbl_main_products">Main Products & Unique Innovation Features</label>
-                    <textarea id="f_main_products" placeholder="Extracted business narrative..." readonly></textarea>
+                    <textarea id="f_main_products" placeholder="Awaiting intake..." readonly></textarea>
                 </div>
             </div>
 
@@ -220,7 +227,7 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
             <div class="grid-row">
                 <div class="grid-col">
                     <label id="lbl_organogram">Organogram & Key Management Roles</label>
-                    <input type="text" id="f_organogram" placeholder="Management structure overview..." readonly>
+                    <input type="text" id="f_organogram" placeholder="Awaiting intake..." readonly>
                 </div>
             </div>
 
@@ -229,21 +236,23 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
             <div class="grid-row">
                 <div class="grid-col grid-col-2">
                     <label id="lbl_machinery">Requested Machinery / Asset Upgrades</label>
-                    <input type="text" id="f_machinery" placeholder="Specified equipment list..." readonly>
+                    <input type="text" id="f_machinery" placeholder="Awaiting intake..." readonly>
                 </div>
                 <div class="grid-col">
                     <label id="lbl_etb_price">Total Financial Target (ETB)</label>
-                    <input type="text" id="f_etb_price" placeholder="0.00 ETB" readonly>
+                    <input type="text" id="f_etb_price" placeholder="Awaiting intake..." readonly>
                 </div>
             </div>
         </div>
 
         <script>
-            // Parse injected session state
             const payload = {payload_json};
 
             function populateForm(data) {{
-                if (!data || Object.keys(data).length === 0) return;
+                if (!data || Object.keys(data).length === 0) {{
+                    // Pristine empty state
+                    return;
+                }}
 
                 const gaps = data.gaps || [];
                 const gapKeys = data.gap_fields || [];
@@ -256,10 +265,10 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
                     if (isGap) {{
                         el.value = value ? value : "[MISSING - UNVERIFIED]";
                         el.className = "field-gap";
-                        if (lbl && !lbl.innerHTML.includes("MISSING")) {{
-                            lbl.innerHTML += ' <span class="gap-tag">⚠️ Missing / Gap</span>';
+                        if (lbl && !lbl.innerHTML.includes("Missing")) {{
+                            lbl.innerHTML += ' <span class="gap-tag">🔴 Missing / Gap</span>';
                         }}
-                    }} else if (value) {{
+                    }} else if (value !== undefined && value !== null && value !== "") {{
                         el.value = value;
                         el.className = "field-filled";
                         if (lbl && !lbl.innerHTML.includes("Verified")) {{
@@ -268,10 +277,9 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
                     }}
                 }}
 
-                // Populate Fields
                 setField("f_company_name", "lbl_company_name", data.company_name, gapKeys.includes("company_name"));
                 setField("f_tin_number", "lbl_tin_number", data.tin_number, gapKeys.includes("tin_number"));
-                setField("f_address", "lbl_address", data.address, gapKeys.includes("address"));
+                setField("f_address", "lbl_address", data.address, gapKeys.includes("address") || gapKeys.includes("location"));
                 setField("f_mobile", "lbl_mobile", data.mobile || "+251 (On File)", gapKeys.includes("mobile"));
                 setField("f_years_operation", "lbl_years_operation", data.years_in_operation ? data.years_in_operation + " Years" : null, gapKeys.includes("years_in_operation"));
                 setField("f_total_staff", "lbl_total_staff", data.total_staff ? data.total_staff + " Staff" : null, gapKeys.includes("total_staff"));
@@ -281,17 +289,18 @@ def render_giz_form(session_data: Dict[str, Any], height: int = 750):
                 setField("f_machinery", "lbl_machinery", data.machinery_requested, gapKeys.includes("machinery"));
                 setField("f_etb_price", "lbl_etb_price", data.requested_etb ? Number(data.requested_etb).toLocaleString() + " ETB" : null, gapKeys.includes("requested_etb"));
 
-                // Update Status Banner
                 const statusEl = document.getElementById("syncStatus");
                 if (statusEl) {{
                     if (gapKeys.length > 0) {{
                         statusEl.innerHTML = "⚠️ Form Filled with " + gapKeys.length + " Gaps Flagged";
                         statusEl.style.backgroundColor = "#FEE2E2";
                         statusEl.style.color = "#991B1B";
+                        statusEl.style.borderColor = "#F87171";
                     }} else {{
                         statusEl.innerHTML = "✅ Form 100% Filled & Verified";
                         statusEl.style.backgroundColor = "#D1FAE5";
                         statusEl.style.color = "#065F46";
+                        statusEl.style.borderColor = "#34D399";
                     }}
                 }}
             }}
