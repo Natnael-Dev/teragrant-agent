@@ -12,6 +12,7 @@ from google.genai import types
 from extractors.config import get_gemini_client
 from schemas.gap_schema import ApplicationPack
 from schemas.reviewer_schema import Contradiction, ContradictionSeverity
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 class SemanticContradictionResponse(BaseModel):
@@ -121,7 +122,7 @@ Identify all semantic discrepancies and return the SemanticContradictionResponse
     config = types.GenerateContentConfig(
         system_instruction=CONTRADICTION_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=SemanticContradictionResponse,
+        response_schema=sanitize_schema_for_gemini(SemanticContradictionResponse),
         temperature=0.0,
     )
 

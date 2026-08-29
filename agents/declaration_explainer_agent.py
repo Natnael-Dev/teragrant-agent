@@ -11,6 +11,7 @@ from google.genai import types
 from extractors.config import get_gemini_client
 from schemas.application_schema import MandatoryDeclarations
 from schemas.consent_schema import ConsentPackage, DeclarationExplanation
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 # The 3 most critical legal declarations selected for grassroots verbal explanation
@@ -85,7 +86,7 @@ Respond strictly in JSON matching the ConsentPackage schema."""
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         response_mime_type="application/json",
-        response_schema=ConsentPackage,
+        response_schema=sanitize_schema_for_gemini(ConsentPackage),
         temperature=0.0,
     )
 

@@ -12,6 +12,7 @@ from google.genai import types
 
 from .config import get_gemini_client
 from .schemas import LicenseExtraction
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 VISION_SYSTEM_PROMPT = """You are an expert OCR and official document analysis system for Ethiopian and regional trade licenses, commercial registration certificates, and business identification papers.
@@ -95,7 +96,7 @@ def extract_license_data(
     config = types.GenerateContentConfig(
         system_instruction=VISION_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=LicenseExtraction,
+        response_schema=sanitize_schema_for_gemini(LicenseExtraction),
         temperature=0.0,  # Zero temperature for deterministic extraction
     )
 

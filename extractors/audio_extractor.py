@@ -12,6 +12,7 @@ from google.genai import types
 
 from .config import get_gemini_client
 from .schemas import AudioTranscriptExtraction
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 AUDIO_SYSTEM_PROMPT = """You are an expert multilingual audio transcriber and SME grant analyst specializing in Ethiopian and East African languages (Amharic, Afaan Oromo, English, Tigrinya, Somali).
@@ -101,7 +102,7 @@ def extract_audio_story(
     config = types.GenerateContentConfig(
         system_instruction=AUDIO_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=AudioTranscriptExtraction,
+        response_schema=sanitize_schema_for_gemini(AudioTranscriptExtraction),
         temperature=0.0,
     )
 

@@ -17,6 +17,7 @@ from schemas.scoring_schema import (
     ScoringResult,
     EligibilityGate,
 )
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 from .eligibility_agent import run_eligibility_gate
 
 
@@ -125,7 +126,7 @@ Respond ONLY with a valid JSON object matching the ScoringResult schema."""
     config = types.GenerateContentConfig(
         system_instruction=SCORER_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=ScoringResult,
+        response_schema=sanitize_schema_for_gemini(ScoringResult),
         temperature=0.0,
     )
 

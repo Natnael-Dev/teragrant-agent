@@ -12,6 +12,7 @@ from google.genai import types
 from extractors.config import get_gemini_client
 from extractors.schemas import LicenseExtraction, AudioTranscriptExtraction
 from schemas.gap_schema import ApplicationPack, Gap, GapPriority
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 MAPPER_SYSTEM_PROMPT = """You are the Senior Intake & Form Mapping Agent for the TeraGrant SME Grant Program.
@@ -29,16 +30,22 @@ CRITICAL ANTI-HALLUCINATION & GAP IDENTIFICATION RULES:
 1. SOURCE PRECEDENCE:
    - For formal legal identity (Business Name, TIN, official location), prioritize the License OCR.
    - For operational narrative, headcount, business story, products, and impact goals, utilize the Audio extraction.
-2. ABSOLUTE ZERO-HALLUCINATION POLICY:
+2. GENDER & DEMOGRAPHIC CALCULATIONS:
+   - If total staff is stated (e.g. 8 workers) and a partial gender count is given (e.g. 6 women):
+     Calculate the complementary count (Male: 2, Female: 6, Other: 0) so that male + female + other equals total_staff exactly.
+   - If total staff is given but gender breakdown is omitted, create an explicit Gap for 'employment.gender_split'.
+3. FINANCIAL TARGETS & ASSETS:
+   - Map requested machinery and birr figures (e.g. 500,000 birr) into impact.etb_financial_target and impact.project_title / machinery_list.
+4. ABSOLUTE ZERO-HALLUCINATION POLICY:
    - If a field is NOT present in either the license or the audio, LEAVE IT NULL OR EMPTY.
    - DO NOT fabricate missing TIN numbers, sales numbers, employee gender splits, age breakdowns, or milestones.
-3. GAP GENERATION:
+5. GAP GENERATION:
    - For EVERY essential field that is missing, unreadable, or incomplete, YOU MUST create a Gap object:
      * field_name: exact path (e.g. 'business_info.tin_number', 'employment.gender_split', 'financials.sales_history')
      * reason_missing: specific explanation (e.g. 'TIN was missing on the uploaded trade license.', 'Voice note mentioned total staff but did not provide gender breakdown.')
      * required_from: 'Applicant', 'Tax Office', 'Guarantor', or 'Site Visit'
      * priority: HIGH, MEDIUM, or LOW
-4. DECLARATIONS & EXCLUSIONS:
+6. DECLARATIONS & EXCLUSIONS:
    - All 15 declarations in ApplicationSchema MUST default to false unless explicitly confirmed.
    - All 3 exclusion factors default to false unless evidence indicates otherwise.
 """
@@ -82,7 +89,7 @@ Respond ONLY with a valid JSON object matching the ApplicationPack schema."""
     config = types.GenerateContentConfig(
         system_instruction=MAPPER_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=ApplicationPack,
+        response_schema=sanitize_schema_for_gemini(ApplicationPack),
         temperature=0.0,
     )
 

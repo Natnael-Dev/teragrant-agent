@@ -14,6 +14,7 @@ from extractors.config import get_gemini_client
 from schemas.application_schema import ApplicationSchema
 from schemas.impact_schema import ImpactProtocol
 from schemas.scoring_schema import GridVariant
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 class RouterDecision(BaseModel):
@@ -86,7 +87,7 @@ Respond with the RouterDecision JSON."""
     config = types.GenerateContentConfig(
         system_instruction=ROUTER_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=RouterDecision,
+        response_schema=sanitize_schema_for_gemini(RouterDecision),
         temperature=0.0,
     )
 

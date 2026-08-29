@@ -11,6 +11,7 @@ from google.genai import types
 from extractors.config import get_gemini_client
 from schemas.scoring_schema import ScoringResult
 from schemas.reviewer_schema import RankedCompany, RankedShortlist, Contradiction
+from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 RANKER_SYSTEM_PROMPT = """You are the Lead Investment Committee Evaluator for the TeraGrant SME Portfolio.
@@ -116,7 +117,7 @@ Respond strictly in JSON matching the RankedShortlist schema."""
     config = types.GenerateContentConfig(
         system_instruction=RANKER_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=RankedShortlist,
+        response_schema=sanitize_schema_for_gemini(RankedShortlist),
         temperature=0.0,
     )
 
