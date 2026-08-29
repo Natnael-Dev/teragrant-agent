@@ -128,16 +128,30 @@ def transcribe_step1(
         }
 
     except Exception as e:
+        err_msg = str(e)
         is_net = is_network_error(e)
-        err_type = "NETWORK_ERROR" if is_net else "API_ERROR"
-        advice = "Check your mobile hotspot or Wi-Fi connectivity and retry." if is_net else "Check your Gemini API quota or model permissions."
+        is_quota = any(k in err_msg.lower() for k in ("quota_exhausted", "resource_exhausted", "429", "quota", "daily api limit"))
+        
+        if is_quota:
+            err_type = "QUOTA_EXHAUSTED"
+            msg = "Daily API limit reached (20 requests). Resets in ~24 hours. Use upload instead or add a backup API key."
+            advice = "Please wait or use upload"
+        elif is_net:
+            err_type = "NETWORK_ERROR"
+            msg = err_msg
+            advice = "Check your mobile hotspot or Wi-Fi connectivity and retry."
+        else:
+            err_type = "API_ERROR"
+            msg = err_msg
+            advice = "Check your Gemini API quota or model permissions."
+
         return {
             "transcript": "",
             "chips": [],
             "audio_data": None,
             "error": {
                 "type": err_type,
-                "message": str(e),
+                "message": msg,
                 "advice": advice
             }
         }

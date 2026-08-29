@@ -98,6 +98,8 @@ def extract_audio_story(
             contents=contents,
             config=config,
         )
+        if isinstance(response, dict) and response.get("quota_exhausted"):
+            raise RuntimeError(f"QUOTA_EXHAUSTED: {response.get('message', 'Daily API limit reached.')}")
         raw_text = response.text if response and hasattr(response, "text") else ""
     except Exception as err:
         raise RuntimeError(f"Audio transcription API failed ({mime_type}): {str(err)}") from err

@@ -79,72 +79,13 @@ SESSION: Dict[str, Any] = {
     }
 }
 
-# Trilingual UI copy dictionary for Home Page
-I18N = {
-    "en": {
-        "hero_title": "Talk. Upload. Verify. Score. Defend.",
-        "hero_subtitle": "Turn a business story into a fundable application — without inventing facts.",
-        "step1_title": "Tell your story in your own words",
-        "step1_desc": "Voice note in Amharic, Afaan Oromo, or English. We extract facts.",
-        "step2_title": "Upload what you have",
-        "step2_desc": "Trade licence photo, workshop photo, or invoices. No form-filling.",
-        "step3_title": "Verify & defend",
-        "step3_desc": "See your digital twin, spot contradictions, score readiness, export proof pack.",
-        "btn_start": "Start Application ›",
-        "btn_reviewer": "Reviewer Dashboard",
-        "legend_title": "EVIDENCE STATUS KEY — 6 HONEST LABELS",
-        "legend_verified": "Verified against official document",
-        "legend_stated": "Stated by applicant in voice note",
-        "legend_inferred": "Derived by AI cross-check",
-        "legend_confirm": "Needs applicant confirmation",
-        "legend_missing": "Required field not yet provided",
-        "legend_contra": "Contradiction detected across sources"
-    },
-    "am": {
-        "hero_title": "ይናገሩ:: ይጫኑ:: ያረጋግጡ:: ይመዝኑ:: ይከላከሉ::",
-        "hero_subtitle": "የንግድ ታሪክዎን ያለ ምንም የፈጠራ ወሬ ወደ ተሟላ እና ተቀባይነት ወዳለው የድጋፍ ማመልከቻ ይቀይሩ::",
-        "step1_title": "ታሪክዎን በራስዎ ቋንቋ ይናገሩ",
-        "step1_desc": "በአማርኛ፣ በኦሮምኛ ወይም በእንግሊዝኛ የድምጽ መልእክት ይላኩ:: እውነታዎችን እናወጣለን::",
-        "step2_title": "ያሉዎትን ሰነዶች ይጫኑ",
-        "step2_desc": "የንግድ ፈቃድ ፎቶ፣ የስራ ቦታ ፎቶ ወይም ደረሰኞች:: ፎርም መሙላት አያስፈልግም::",
-        "step3_title": "ያረጋግጡ እና ይከላከሉ",
-        "step3_desc": "ማመልከቻዎን ይመልከቱ፣ አለመጣጣሞችን ይለዩ፣ ዝግጁነትዎን ይመዝኑ እና ማረጋገጫ ፋይል ያውርዱ::",
-        "btn_start": "ማመልከቻ ይጀምሩ ›",
-        "btn_reviewer": "የገምጋሚዎች ዳሽቦርድ",
-        "legend_title": "የማስረጃ ሁኔታ ቁልፍ — 6 ትክክለኛ መለያዎች",
-        "legend_verified": "በይፋዊ ሰነድ የተረጋገጠ",
-        "legend_stated": "በአመልካቹ በድምጽ የተገለጸ",
-        "legend_inferred": "በአርቴፊሻል ኢንተለጀንስ የተገመተ",
-        "legend_confirm": "የአመልካቹን ማረጋገጫ የሚፈልግ",
-        "legend_missing": "እስካሁን ያልቀረበ አስፈላጊ መረጃ",
-        "legend_contra": "በመረጃዎች መካከል ግጭት ተገኝቷል"
-    },
-    "om": {
-        "hero_title": "Dubbadhu. Fe'i. Mirkaneessi. Qabxii kenni. Falmi.",
-        "hero_subtitle": "Oduu daldala keessanii gara iyyannoo gargaarsa maallaqaa guutuutti jijjiiraa — soba tokko malee.",
-        "step1_title": "Seenaa keessan afaanuma keessaniin dubbadhaa",
-        "step1_desc": "Afaan Oromoo, Amaariffa yookaan Ingiliffaan sagalee ergaa. Nuti qabxiiwwan barbaachisoo baafna.",
-        "step2_title": "Waraqaalee qabdan fe'aa",
-        "step2_desc": "Suuraa hayyama daldalaa, suuraa bakka hojii ykn faakturaa. Unka guutuun hin barbaachisu.",
-        "step3_title": "Mirkaneessaa & Falmaa",
-        "step3_desc": "Waraqaa iyyannoo keessanii ilaalaa, wal-dhabdee adda baasaa, qophii keessan madaalaa, ragaa buufadhaa.",
-        "btn_start": "Iyyannoo Jalqabaa ›",
-        "btn_reviewer": "Daashboordii Gamaaggamaa",
-        "legend_title": "Furtuu Haala Ragaa — Mallattoolee Dhugaa 6",
-        "legend_verified": "Dokumantii seeraan mirkanaa'e",
-        "legend_stated": "Iyyataan sagaleedhaan kan ibsame",
-        "legend_inferred": "AI dhaan kan tilmaamame",
-        "legend_confirm": "Mirkaneessa iyyataa kan barbaadu",
-        "legend_missing": "Oodeeffannoo barbaachisaa hin dhiyaatin",
-        "legend_contra": "Ragaalee gidduutti wal-dhabdeen argameera"
-    }
-}
+from app.i18n import TRANSLATIONS, get_translations
 
 
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request, lang: str = Query("en")):
-    norm_lang = lang if lang in I18N else "en"
-    t = I18N[norm_lang]
+    norm_lang = lang if lang in TRANSLATIONS else "en"
+    t = get_translations(norm_lang)
     return templates.TemplateResponse(
         request=request,
         name="home.html",
@@ -153,8 +94,10 @@ async def home_page(request: Request, lang: str = Query("en")):
 
 
 @app.get("/wizard/interview", response_class=HTMLResponse)
+@app.get("/wizard/interview", response_class=HTMLResponse)
 async def wizard_interview(request: Request, step: int = Query(0), lang: str = Query("en")):
-    norm_lang = lang if lang in I18N else "en"
+    norm_lang = lang if lang in TRANSLATIONS else "en"
+    t = get_translations(norm_lang)
     app_name = applicant_display_name(SESSION)
 
     total_steps = len(INTERVIEW_STEPS)
@@ -174,6 +117,7 @@ async def wizard_interview(request: Request, step: int = Query(0), lang: str = Q
         name="interview.html",
         context={
             "lang": norm_lang,
+            "t": t,
             "applicant_name": app_name,
             "session": SESSION,
             "step_index": safe_step,
@@ -191,7 +135,8 @@ async def wizard_step(
     lang: str = Query("en"),
     gated: int = Query(0)
 ):
-    norm_lang = lang if lang in I18N else "en"
+    norm_lang = lang if lang in TRANSLATIONS else "en"
+    t = get_translations(norm_lang)
     
     # SERVER-SIDE GATING RULES
     has_audio_intake = bool(SESSION.get("transcript") or SESSION.get("audio_data"))
@@ -233,6 +178,7 @@ async def wizard_step(
         context={
             "step_num": step_num,
             "lang": norm_lang,
+            "t": t,
             "gated": gated,
             "applicant_name": app_name,
             "session": SESSION,
@@ -251,11 +197,13 @@ async def wizard_step(
 @app.get("/reviewer", response_class=HTMLResponse)
 async def reviewer_dashboard(request: Request, source: str = Query("demo")):
     norm_source = "session" if source == "session" else "demo"
+    t = get_translations("en")
     data = get_reviewer_data(source=norm_source, session_dict=SESSION)
     return templates.TemplateResponse(
         request=request,
         name="reviewer.html",
         context={
+            "t": t,
             "kpis": data["kpis"],
             "shortlist": data["shortlist"],
             "raw_items": data["raw_items"],
@@ -269,10 +217,11 @@ async def reviewer_dashboard(request: Request, source: str = Query("demo")):
 
 @app.get("/evidence", response_class=HTMLResponse)
 async def evidence_library(request: Request):
+    t = get_translations("en")
     return templates.TemplateResponse(
         request=request,
         name="evidence.html",
-        context={"session": SESSION}
+        context={"session": SESSION, "t": t}
     )
 
 

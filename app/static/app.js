@@ -1,4 +1,4 @@
-// TeraGrant Frontend JavaScript (Batch 30F)
+// TeraGrant Frontend JavaScript (Batch 31F)
 
 let mediaRecorder = null;
 let audioChunks = [];
@@ -8,6 +8,63 @@ let activeDeclarationId = null;
 let activeGapField = null;
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+// Loading Overlay System (Batch 31F)
+function showLoadingOverlay(message) {
+  let overlay = document.getElementById("global-loading-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "global-loading-overlay";
+    overlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.25s ease;
+      opacity: 0;
+    `;
+    overlay.innerHTML = `
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 32px 40px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-width: 420px; border: 1px solid #E5E7EB;">
+        <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+          <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite; color: #059669;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path style="opacity: 0.75;" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+        <div id="loading-overlay-msg" style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">${message || "Processing..."}</div>
+        <div style="font-size: 13px; color: #6B7280;">Please wait while our zero-hallucination auditor runs...</div>
+      </div>
+      <style>
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    `;
+    document.body.appendChild(overlay);
+  } else {
+    const msgEl = document.getElementById("loading-overlay-msg");
+    if (msgEl) msgEl.innerText = message || "Processing...";
+    overlay.style.display = "flex";
+  }
+  requestAnimationFrame(() => {
+    overlay.style.opacity = "1";
+  });
+}
+
+function hideLoadingOverlay() {
+  const overlay = document.getElementById("global-loading-overlay");
+  if (overlay) {
+    overlay.style.opacity = "0";
+    setTimeout(() => {
+      overlay.style.display = "none";
+    }, 250);
+  }
+}
 
 document.addEventListener("DOMContentLoaded", () => {
   // Check MediaDevices Availability
@@ -54,6 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       showProcessingState("Analyzing voice note with zero-hallucination auditor...");
+      showLoadingOverlay("🎙️ Decoding your voice...");
       const formData = new FormData();
       formData.append("audio", file);
       formData.append("lang", getActiveLang());
@@ -71,6 +129,8 @@ document.addEventListener("DOMContentLoaded", () => {
           message: "Failed to upload audio: " + err.message,
           advice: "Check your internet connection and retry."
         });
+      } finally {
+        hideLoadingOverlay();
       }
     });
   }
@@ -99,6 +159,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (isInterview) {
               await submitInterviewAnswer(audioBlob);
             } else {
+              showLoadingOverlay("🎙️ Decoding your voice...");
               const formData = new FormData();
               formData.append("audio", audioBlob, "recording.webm");
               formData.append("lang", getActiveLang());
@@ -116,6 +177,8 @@ document.addEventListener("DOMContentLoaded", () => {
                   message: "Transcription error: " + err.message,
                   advice: "Check API status or retry."
                 });
+              } finally {
+                hideLoadingOverlay();
               }
             }
           };
@@ -131,6 +194,8 @@ document.addEventListener("DOMContentLoaded", () => {
             recordCaption.innerText = "● Recording... tap to stop";
           }
           if (errorCard) errorCard.style.display = "none";
+          const quotaBanner = document.getElementById("quota-exhausted-banner");
+          if (quotaBanner) quotaBanner.style.display = "none";
         } catch (err) {
           showClassifiedError({
             type: "DEVICE_ERROR",
@@ -174,6 +239,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (errorCard) errorCard.style.display = "none";
+    const quotaBanner = document.getElementById("quota-exhausted-banner");
+    if (quotaBanner) quotaBanner.style.display = "none";
 
     if (transcriptText) transcriptText.innerText = `"${data.transcript}"`;
     if (factChips) {
@@ -196,6 +263,41 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function showClassifiedError(err) {
+    const isQuota = (err.type === "QUOTA_EXHAUSTED" || (err.message && err.message.toLowerCase().includes("quota")));
+    
+    if (isQuota) {
+      // Show friendly amber banner for Quota Exhaustion (Batch 31F)
+      let quotaBanner = document.getElementById("quota-exhausted-banner");
+      if (!quotaBanner) {
+        quotaBanner = document.createElement("div");
+        quotaBanner.id = "quota-exhausted-banner";
+        quotaBanner.style.cssText = "background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 16px; margin: 0 auto 20px auto; max-width: 540px; text-align: left; color: #92400E;";
+        const targetContainer = document.querySelector(".container-wizard") || document.querySelector(".container") || document.body;
+        if (targetContainer) targetContainer.insertBefore(quotaBanner, targetContainer.firstChild);
+      }
+      quotaBanner.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #B45309; margin-bottom: 4px;">
+          <span style="font-size: 16px;">📊</span>
+          <span>Daily Limit Reached</span>
+        </div>
+        <div style="font-size: 13px; color: #92400E; margin-bottom: 6px;">
+          📊 Daily limit reached. Try again tomorrow or upload a voice note instead.
+        </div>
+        <div style="font-size: 12px; color: #B45309; background: #FEF3C7; padding: 6px 10px; border-radius: 6px;">
+          <strong>Advice:</strong> ${err.advice || "Please wait or use upload"}
+        </div>
+      `;
+      quotaBanner.style.display = "block";
+      
+      // Auto-reveal the file uploader
+      const audioUploadWrapper = document.getElementById("audio-upload-wrapper");
+      if (audioUploadWrapper) {
+        audioUploadWrapper.style.display = "block";
+      }
+      if (errorCard) errorCard.style.display = "none";
+      return;
+    }
+
     if (errorCard) {
       const titleEl = document.getElementById("error-card-title");
       const msgEl = document.getElementById("error-card-msg");
@@ -257,6 +359,7 @@ async function submitProcess() {
     btn.innerHTML = '<span>⏳ Processing Multimodal Truth Layer...</span>';
   }
   if (spinnerArea) spinnerArea.style.display = "block";
+  showLoadingOverlay("📄 Reading your documents...");
 
   try {
     const res = await fetch("/api/process", {
@@ -306,6 +409,8 @@ async function submitProcess() {
       btn.innerHTML = '<span>⚡ Process & Score ›</span>';
     }
     alert("Error processing dossier: " + err.message);
+  } finally {
+    hideLoadingOverlay();
   }
 }
 
@@ -331,6 +436,7 @@ async function resolveGapWithVoice(gapField) {
   if (card) {
     card.style.opacity = "0.6";
   }
+  showLoadingOverlay("🏗️ Updating your application...");
 
   try {
     const res = await fetch("/api/resolve", {
@@ -352,6 +458,8 @@ async function resolveGapWithVoice(gapField) {
   } catch (err) {
     alert("Failed to resolve gap: " + err.message);
     if (card) card.style.opacity = "1";
+  } finally {
+    hideLoadingOverlay();
   }
 }
 
@@ -369,6 +477,7 @@ async function resolveGapWithFile(gapField, fileInput) {
 
   const card = document.getElementById("gap-card-" + gapField);
   if (card) card.style.opacity = "0.6";
+  showLoadingOverlay("🏗️ Updating your application...");
 
   try {
     const res = await fetch("/api/resolve", {
@@ -390,6 +499,8 @@ async function resolveGapWithFile(gapField, fileInput) {
   } catch (err) {
     alert("Failed to upload evidence: " + err.message);
     if (card) card.style.opacity = "1";
+  } finally {
+    hideLoadingOverlay();
   }
 }
 
@@ -505,6 +616,7 @@ async function submitInterviewAnswer(audioBlob = null, textInputVal = null) {
   const nextBtn = document.getElementById("btn-interview-next");
 
   if (feedbackBox) feedbackBox.innerHTML = '<div style="font-size: 12px; color: #059669; font-weight: 600;">⏳ Extracting atomic facts...</div>';
+  showLoadingOverlay("🎤 Processing your answer...");
 
   try {
     const res = await fetch("/api/interview/answer", {
@@ -538,6 +650,8 @@ async function submitInterviewAnswer(audioBlob = null, textInputVal = null) {
     }
   } catch (err) {
     if (feedbackBox) feedbackBox.innerHTML = `<div style="color: #DC2626; font-size: 12px;">Error: ${err.message}</div>`;
+  } finally {
+    hideLoadingOverlay();
   }
 }
 

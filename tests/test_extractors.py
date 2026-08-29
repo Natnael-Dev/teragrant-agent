@@ -283,3 +283,22 @@ def test_call_gemini_with_fallback_api_404_walks_chain():
     assert model_used == MODEL_FALLBACK_CHAIN[1]
     assert mock_client.models.generate_content.call_count == 2
 
+
+def test_call_gemini_with_fallback_all_429_returns_quota_exhausted():
+    """Verify that when all models return 429 RESOURCE_EXHAUSTED, call_gemini_with_fallback returns QuotaExhaustedResult."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED. Quota exceeded. Please retry in 15.5s.")
+
+    result = call_gemini_with_fallback(
+        client=mock_client,
+        model=None,
+        contents="test content",
+        config=None,
+    )
+
+    assert isinstance(result, dict)
+    assert result.get("quota_exhausted") is True
+    assert "Daily API limit reached" in result.get("message")
+    assert result.get("retry_after_seconds") == 15
+
+

@@ -84,3 +84,17 @@ def test_transcribe_step1_network_error(mock_extract):
     assert res["error"] is not None
     assert res["error"]["type"] == "NETWORK_ERROR"
     assert "hotspot" in res["error"]["advice"].lower()
+
+
+@patch("app.wizard_logic.extract_audio_story")
+def test_transcribe_step1_quota_exhausted(mock_extract):
+    mock_extract.side_effect = Exception("QUOTA_EXHAUSTED: Daily API limit reached (20 requests).")
+
+    fake_audio = b"RIFF" + b"\x00" * 200
+    res = transcribe_step1(audio_bytes=fake_audio, ext="mp3")
+
+    assert res["error"] is not None
+    assert res["error"]["type"] == "QUOTA_EXHAUSTED"
+    assert "Daily API limit reached" in res["error"]["message"]
+    assert "upload" in res["error"]["advice"].lower()
+

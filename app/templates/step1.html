@@ -11,18 +11,18 @@
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
-  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">Step 1 of 6</div>
+  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">{{ t.step_1_of_6 }}</div>
 </div>
 
 <div class="container-wizard">
   <!-- Stepper Row -->
   <div class="stepper-bar">
-    <span class="step-node active">● Tell your story</span>
-    <span class="step-node">○ Upload evidence</span>
-    <span class="step-node">○ Review application</span>
-    <span class="step-node">○ Gaps & contradictions</span>
-    <span class="step-node">○ Declarations</span>
-    <span class="step-node">○ Readiness</span>
+    <span class="step-node active">● {{ t.step1_title }}</span>
+    <span class="step-node">○ {{ t.step2_title }}</span>
+    <span class="step-node">○ {{ t.review_application }}</span>
+    <span class="step-node">○ {{ t.gaps_detected }}</span>
+    <span class="step-node">○ {{ t.declarations_integrity }}</span>
+    <span class="step-node">○ {{ t.readiness_score }}</span>
   </div>
 
   {% if gated %}
@@ -34,9 +34,9 @@
 
   <!-- Header -->
   <div style="text-align: center; max-width: 640px; margin: 0 auto 16px auto;">
-    <h2 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Tell us about your business</h2>
-    <p style="font-size: 14px; color: #6B7280; margin: 0 0 4px 0;">Speak in Amharic, Afaan Oromo, or English. We will extract the key information automatically.</p>
-    <p style="font-size: 13.5px; color: #4B5563; font-family: 'Noto Sans Ethiopic'; margin: 0 0 16px 0;">ስለ ንግድዎ ይናገሩ — ወደ ማመልከቻ እንቀይረዋለን</p>
+    <h2 style="font-size: 26px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">{{ t.voice_intake_title }}</h2>
+    <p style="font-size: 14px; color: #6B7280; margin: 0 0 4px 0;">{{ t.voice_intake_sub }}</p>
+    <p style="font-size: 13.5px; color: #4B5563; font-family: 'Noto Sans Ethiopic'; margin: 0 0 16px 0;">{{ t.tell_your_story }}</p>
 
     <!-- Language Segmented Control -->
     <div class="seg">
@@ -77,13 +77,13 @@
       {% endfor %}
     </div>
 
-    <div class="recorder-caption" id="record-caption">Tap to record or speak</div>
+    <div class="recorder-caption" id="record-caption">{{ t.tap_to_record }}</div>
 
     <!-- Upload voice note link -->
     <div id="audio-upload-wrapper" style="margin-top: 14px;">
       <label for="audio-file-input" style="font-size: 12px; color: #6B7280; cursor: pointer; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px;">
         {{ icon('upload', size=14, color='#6B7280') }}
-        <span>or upload a voice note (.mp3, .wav, .m4a, .ogg, .oga, .webm up to 50MB)</span>
+        <span>{{ t.or_upload_file }}</span>
       </label>
       <input type="file" id="audio-file-input" accept=".mp3,.wav,.m4a,.ogg,.oga,.webm" style="display: none;">
     </div>
@@ -107,7 +107,7 @@
   <div style="text-align: center; margin-top: 32px;">
     <a href="/wizard/interview?lang={{ lang }}" class="btn-green-link">
       {{ icon('mic', size=16, color='#059669') }}
-      <span>Need help? Let the AI interview you step by step →</span>
+      <span>{{ t.need_help_interview }} →</span>
     </a>
   </div>
 </div>
@@ -120,15 +120,15 @@
   </a>
   
   <div class="black-pill">
-    <span style="color: #9CA3AF; cursor: pointer;" onclick="location.reload();">Cancel</span>
+    <span style="color: #9CA3AF; cursor: pointer;" onclick="location.reload();">{{ t.cancel_btn }}</span>
     <span>••••••••</span>
     <span style="color: #059669; display: inline-flex; align-items: center; gap: 4px;">
-      {{ icon('check', size=12, color='#059669') }} Confirm
+      {{ icon('check', size=12, color='#059669') }} {{ t.verified }}
     </span>
   </div>
 
   <a id="btn-continue" href="/wizard/2?lang={{ lang }}" class="btn btn-primary" style="{{ 'opacity:0.5; cursor:not-allowed;' if not session.transcript else '' }}" {% if not session.transcript %}disabled{% endif %}>
-    <span>Continue</span>
+    <span>{{ t.continue_btn }}</span>
     {{ icon('chevron-right', size=14, color='#FFFFFF') }}
   </a>
 </div>

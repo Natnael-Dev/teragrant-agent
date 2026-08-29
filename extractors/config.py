@@ -5,9 +5,10 @@ Includes Client Timeout Cap and Smart Error-Class Failover / Fallback Chain.
 
 import json
 import os
+import re
 import socket
 import time
-from typing import Optional, Any, Tuple, List, Dict
+from typing import Optional, Any, Tuple, List, Dict, Union
 from dotenv import load_dotenv
 import httpx
 from google import genai
@@ -18,14 +19,35 @@ load_dotenv()
 
 # Fallback chain for automatic failover when a model returns 404 / retired / quota exceeded
 MODEL_FALLBACK_CHAIN: List[str] = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-3.5-flash",
     "gemini-3.6-flash",
-    "gemini-2.5-pro",
-    "gemini-3.1-pro-preview",
+    "gemini-3.5-flash",
+    "gemini-2.5-flash-lite",
 ]
+
+
+class QuotaExhaustedResult(dict):
+    """
+    Special dictionary returned when all models hit 429 RESOURCE_EXHAUSTED / quota limits.
+    Supports dictionary access, attribute access, and 2-tuple unpacking (res, model_name).
+    """
+    def __init__(
+        self,
+        message: str = "Daily API limit reached (20 requests). Resets in ~24 hours. Use upload instead or add a backup API key.",
+        retry_after_seconds: int = 60
+    ):
+        super().__init__({
+            "quota_exhausted": True,
+            "message": message,
+            "retry_after_seconds": retry_after_seconds,
+        })
+        self.quota_exhausted = True
+        self.message = message
+        self.retry_after_seconds = retry_after_seconds
+        self.text = ""
+
+    def __iter__(self):
+        # Allows `response, model_used = call_gemini_with_fallback(...)`
+        return iter([self, "quota_exhausted"])
 
 
 def get_api_key() -> str:
@@ -115,13 +137,14 @@ def call_gemini_with_fallback(
     model: Optional[str],
     contents: Any,
     config: Any,
-) -> Tuple[Any, str]:
+) -> Union[Tuple[Any, str], QuotaExhaustedResult]:
     """
     Executes client.models.generate_content with smart error-class failover:
     - Automatically walks MODEL_FALLBACK_CHAIN candidates on failure.
     - Captures and surfaces granular error details across every model candidate.
     - If it's a network error, retries ONCE on the SAME model, then moves to next.
     - If it's a 404 / 429 / not found / quota / deprecation, walks the MODEL_FALLBACK_CHAIN candidates.
+    - If ALL models return 429 RESOURCE_EXHAUSTED / quota limit, returns QuotaExhaustedResult instead of crashing.
 
     Args:
         client: The initialized genai.Client instance.
@@ -130,7 +153,7 @@ def call_gemini_with_fallback(
         config: GenerateContentConfig.
 
     Returns:
-        Tuple[Any, str]: (response object, model_name_used)
+        Tuple[Any, str] or QuotaExhaustedResult: (response object, model_name_used)
     """
     candidates = [str(model)] if model else []
     for m in MODEL_FALLBACK_CHAIN:
@@ -169,5 +192,26 @@ def call_gemini_with_fallback(
             if any(k in err_str for k in ("404", "429", "not found", "is not supported", "quota", "deprecated", "resource_exhausted", "permission_denied", "403", "invalid_argument", "400")):
                 continue
 
-    # If we get here, ALL models failed.
+    # Check if ALL models failed due to 429 / RESOURCE_EXHAUSTED / quota
+    is_all_quota = all(
+        any(q in err.lower() for q in ("429", "resource_exhausted", "quota", "rate limit"))
+        for err in errors.values()
+    ) if errors else False
+
+    if is_all_quota:
+        retry_delay = 60
+        for err in errors.values():
+            if "retry in" in err.lower():
+                m = re.search(r"retry in ([\d\.]+)s", err, re.IGNORECASE)
+                if m:
+                    try:
+                        retry_delay = int(float(m.group(1)))
+                    except Exception:
+                        pass
+        return QuotaExhaustedResult(
+            message="Daily API limit reached (20 requests). Resets in ~24 hours. Use upload instead or add a backup API key.",
+            retry_after_seconds=retry_delay
+        )
+
+    # If we get here, other failures occurred.
     raise RuntimeError(f"All models failed. Details: {json.dumps(errors)}")
