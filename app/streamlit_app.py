@@ -1,10 +1,9 @@
 """
-TeraGrant Agent — AI Intake & Evaluation Platform (Batch 26 Step 1 "Tell Your Story").
+TeraGrant Agent — AI Intake & Evaluation Platform (Batch 27 Visual Repair).
 AI Builder Hackathon 2026 | Challenge 1 (SME Grant Automation)
 
-Figma-faithful Step 1 (Image 12) implementation with pure wizard logic extraction (app/wizard_logic.py),
-96px red pulsing recording circle, waveform visualizer, WhatsApp transcript bubble with fact chips,
-multilingual pills, and preserved working downstream workspaces for full challenge pipeline.
+Figma-faithful Home (Image 11), Step 1 (Image 12), and Step 2 (Image 14) with unified theme,
+zero ghost boxes, light-mode sidebar and buttons, and preserved downstream full-challenge engine.
 """
 
 import base64
@@ -98,6 +97,7 @@ from agents.interview_agent import (
 )
 from app.ui_helpers import evidence_pct, row_status, kpi_stats
 from app.wizard_logic import transcribe_step1, build_fact_chips, applicant_display_name
+from app.theme import apply_theme
 
 
 # =============================================================================
@@ -177,7 +177,7 @@ I18N = {
 
 
 # =============================================================================
-# PAGE CONFIGURATION & GLOBAL DESIGN SYSTEM (Inter, Noto Sans Ethiopic, Tokens)
+# PAGE CONFIGURATION & UNIFIED THEME
 # =============================================================================
 st.set_page_config(
     page_title="TeraGrant — Talk. Upload. Verify. Score. Defend.",
@@ -186,208 +186,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
-
-    /* 1. Hide default Streamlit chrome */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* 2. Global Page Styling */
-    .stApp {
-        background-color: #F6F7F9;
-        font-family: 'Inter', 'Noto Sans Ethiopic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        color: #111827;
-    }
-
-    /* 3. Cards */
-    .tg-card {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin-bottom: 1.2rem;
-    }
-    
-    [data-testid="stColumn"] {
-        background: #FFFFFF;
-        padding: 1.3rem;
-        border-radius: 16px;
-        border: 1px solid #E5E7EB;
-    }
-
-    /* 4. Touch Targets & Buttons */
-    .stButton > button {
-        min-height: 48px;
-        border-radius: 10px;
-        font-weight: 600;
-        font-family: 'Inter', 'Noto Sans Ethiopic', sans-serif;
-        border: 1px solid #E5E7EB;
-        transition: all 0.15s ease-in-out;
-    }
-    .stButton > button[kind="primary"] {
-        background-color: #059669 !important;
-        border-color: #059669 !important;
-        color: #FFFFFF !important;
-    }
-    .stButton > button[kind="primary"]:hover {
-        background-color: #047857 !important;
-        border-color: #047857 !important;
-    }
-
-    /* 5. Status Chips */
-    .chip {
-        font-size: 10px;
-        font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 6px;
-        text-transform: uppercase;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        letter-spacing: 0.2px;
-    }
-    .chip-verified     { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
-    .chip-stated       { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
-    .chip-inferred     { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
-    .chip-confirmation { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
-    .chip-missing      { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
-    .chip-contradicted { background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; }
-
-    /* 6. Stepper Navigation Row */
-    .stepper-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border-bottom: 1px solid #E5E7EB;
-        padding-bottom: 12px;
-        margin-bottom: 24px;
-    }
-    .step-node {
-        font-size: 12px;
-        color: #6B7280;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .step-node.active {
-        color: #059669;
-        font-weight: 700;
-        border-bottom: 2px solid #059669;
-        padding-bottom: 4px;
-    }
-
-    /* 7. 96px Red Pulsing Recording Circle & Waveform */
-    .recorder-wrapper {
-        text-align: center;
-        margin: 20px auto 16px auto;
-        max-width: 480px;
-    }
-    .record-circle-96 {
-        width: 96px;
-        height: 96px;
-        border-radius: 50%;
-        background: #DC2626;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #FFFFFF;
-        font-size: 38px;
-        margin: 0 auto 14px auto;
-        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
-        animation: pulse-ring 1.8s infinite;
-    }
-    @keyframes pulse-ring {
-        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-        70% { transform: scale(1.04); box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
-        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-    }
-    .wave-bars {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 4px;
-        height: 24px;
-        margin-bottom: 8px;
-    }
-    .wave-bar {
-        width: 3px;
-        background: #DC2626;
-        border-radius: 2px;
-        animation: wave 1.2s ease-in-out infinite alternate;
-    }
-    .wave-bar:nth-child(1) { height: 8px; animation-delay: 0.1s; }
-    .wave-bar:nth-child(2) { height: 16px; animation-delay: 0.2s; }
-    .wave-bar:nth-child(3) { height: 22px; animation-delay: 0.3s; }
-    .wave-bar:nth-child(4) { height: 14px; animation-delay: 0.4s; }
-    .wave-bar:nth-child(5) { height: 20px; animation-delay: 0.2s; }
-    .wave-bar:nth-child(6) { height: 10px; animation-delay: 0.5s; }
-    @keyframes wave {
-        0% { transform: scaleY(0.4); }
-        100% { transform: scaleY(1.0); }
-    }
-
-    /* 8. WhatsApp-style Chat Bubble */
-    .whatsapp-bubble {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        border-left: 4px solid #059669;
-        border-radius: 12px;
-        padding: 16px;
-        margin: 16px auto;
-        max-width: 620px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        text-align: left;
-    }
-    .whatsapp-bubble-title {
-        font-size: 11px;
-        font-weight: 700;
-        color: #059669;
-        text-transform: uppercase;
-        margin-bottom: 6px;
-    }
-    .whatsapp-transcript {
-        font-size: 13px;
-        color: #111827;
-        line-height: 1.5;
-        font-style: italic;
-        margin-bottom: 12px;
-    }
-    .fact-chips-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-    .fact-chip-pill {
-        background: #F3F4F6;
-        border: 1px solid #E5E7EB;
-        padding: 3px 8px;
-        border-radius: 6px;
-        font-size: 11px;
-        color: #374151;
-        font-weight: 600;
-    }
-
-    /* 9. Black Decorative Pill in Bottom Bar */
-    .bottom-status-pill {
-        background: #111827;
-        color: #FFFFFF;
-        border-radius: 24px;
-        padding: 8px 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        font-size: 12px;
-        font-weight: 600;
-        margin: 0 auto;
-        width: fit-content;
-    }
-</style>
-""", unsafe_allow_html=True)
+apply_theme()
 
 
 # =============================================================================
@@ -486,7 +285,7 @@ with st.sidebar:
 
 
 # =============================================================================
-# SCREEN S0: RESTYLED HOME PAGE (Image 11)
+# SCREEN S0: RESTYLED HOME PAGE (Figma Image 11)
 # =============================================================================
 if st.session_state["page"] == "home":
     col_t_l, col_t_r = st.columns([2, 1])
@@ -499,26 +298,24 @@ if st.session_state["page"] == "home":
     with col_t_r:
         st.markdown("<div style='text-align:right; font-size:11px; color:#059669; font-weight:700;'>● Gemini Connected</div>", unsafe_allow_html=True)
 
-    st.write("")
-
     # Language Switcher
-    col_lp1, col_lp2, col_lp3, col_lp4, col_lp5 = st.columns([2, 1, 1, 1, 2])
-    with col_lp2:
+    col_lp1, col_lp2, col_lp3 = st.columns(3)
+    with col_lp1:
         if st.button("English", key="home_lang_en", use_container_width=True, type="primary" if cur_lang == "English" else "secondary"):
             st.session_state["lang"] = "English"
             st.rerun()
-    with col_lp3:
+    with col_lp2:
         if st.button("አማርኛ", key="home_lang_am", use_container_width=True, type="primary" if cur_lang == "Amharic" else "secondary"):
             st.session_state["lang"] = "Amharic"
             st.rerun()
-    with col_lp4:
+    with col_lp3:
         if st.button("Afaan Oromoo", key="home_lang_or", use_container_width=True, type="primary" if cur_lang == "Oromo" else "secondary"):
             st.session_state["lang"] = "Oromo"
             st.rerun()
 
     # Hero
     st.markdown(f"""
-    <div style="text-align:center; margin-top: 1rem; margin-bottom: 2.5rem;">
+    <div style="text-align:center; margin-top: 1rem; margin-bottom: 2rem;">
         <div style="font-size: 2.5rem; font-weight: 800; color: #111827; letter-spacing: -0.8px; margin-bottom: 0.5rem; line-height: 1.2;">
             {t["hero_title"]}
         </div>
@@ -559,28 +356,22 @@ if st.session_state["page"] == "home":
         """, unsafe_allow_html=True)
 
     st.write("")
-    st.write("")
 
     # CTAs
-    col_b1, col_b2, col_b3 = st.columns([1, 2, 1])
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        if st.button(t["btn_start"], type="primary", use_container_width=True):
+            st.session_state["page"] = "my_application"
+            st.session_state["step"] = 1
+            st.rerun()
     with col_b2:
-        btn_col_a, btn_col_b = st.columns(2)
-        with btn_col_a:
-            if st.button(t["btn_start"], type="primary", use_container_width=True):
-                st.session_state["page"] = "my_application"
-                st.session_state["step"] = 1
-                st.rerun()
-        with btn_col_b:
-            if st.button(t["btn_reviewer"], use_container_width=True):
-                st.session_state["page"] = "batch_review"
-                st.rerun()
-
-    st.write("")
-    st.write("")
+        if st.button(t["btn_reviewer"], use_container_width=True):
+            st.session_state["page"] = "batch_review"
+            st.rerun()
 
     # Status Key
     st.markdown(f"""
-    <div style="margin-top: 3.5rem; text-align:center;">
+    <div style="margin-top: 3rem; text-align:center;">
         <div style="font-size:10px; font-weight:800; color:#6B7280; letter-spacing:0.8px; margin-bottom:12px;">{t["legend_title"]}</div>
         <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:14px; font-size:11px; color:#4B5563;">
             <span><span class="chip chip-verified">Document Verified</span> {t["legend_verified"]}</span>
@@ -598,17 +389,16 @@ if st.session_state["page"] == "home":
 # SCREEN S1: STEP 1 OF 6 — TELL YOUR STORY (Figma Image 12)
 # =============================================================================
 elif st.session_state["page"] == "my_application" and st.session_state.get("step", 1) == 1:
-    # 1. Top Bar
     disp_name = applicant_display_name(st.session_state)
-    col_tb1, col_tb2, col_tb3 = st.columns([1, 2, 1])
-    with col_tb1:
-        if st.button("← Back to home", key="btn_s1_home"):
-            st.session_state["page"] = "home"
-            st.rerun()
-    with col_tb2:
-        st.markdown(f"<div style='text-align:center; font-size:13px; font-weight:700; color:#111827;'>{disp_name}</div>", unsafe_allow_html=True)
-    with col_tb3:
-        st.markdown("<div style='text-align:right; font-size:11.5px; color:#6B7280; font-weight:600;'>Step 1 of 6</div>", unsafe_allow_html=True)
+
+    # 1. Top Bar Row
+    st.markdown(f"""
+    <div class="top-bar-row">
+        <div style="font-size:13px; font-weight:600; color:#6B7280;">‹ Home</div>
+        <div class="top-bar-title">{disp_name}</div>
+        <div class="top-bar-step">Step 1 of 6</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # 2. Stepper Row
     st.markdown("""
@@ -624,23 +414,23 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
 
     # 3. Center Header & Language Pills
     st.markdown("""
-    <div style="text-align:center; max-width:640px; margin: 0 auto 1.2rem auto;">
+    <div style="text-align:center; max-width:640px; margin: 0 auto 0.8rem auto;">
         <div style="font-size:1.65rem; font-weight:800; color:#111827; margin-bottom:4px;">Tell us about your business</div>
         <div style="font-size:0.95rem; color:#6B7280; margin-bottom:4px;">Speak in Amharic, Afaan Oromo, or English. We will extract the key information automatically.</div>
         <div style="font-size:0.9rem; color:#4B5563; font-family:'Noto Sans Ethiopic';">ስለ ንግድዎ ይናገሩ — ወደ ማመልከቻ እንቀይረዋለን::</div>
     </div>
     """, unsafe_allow_html=True)
 
-    col_lp1, col_lp2, col_lp3, col_lp4, col_lp5 = st.columns([2, 1, 1, 1, 2])
-    with col_lp2:
+    col_lp1, col_lp2, col_lp3 = st.columns(3)
+    with col_lp1:
         if st.button("English", key="s1_lang_en", use_container_width=True, type="primary" if cur_lang == "English" else "secondary"):
             st.session_state["lang"] = "English"
             st.rerun()
-    with col_lp3:
+    with col_lp2:
         if st.button("አማርኛ", key="s1_lang_am", use_container_width=True, type="primary" if cur_lang == "Amharic" else "secondary"):
             st.session_state["lang"] = "Amharic"
             st.rerun()
-    with col_lp4:
+    with col_lp3:
         if st.button("Afaan Oromoo", key="s1_lang_or", use_container_width=True, type="primary" if cur_lang == "Oromo" else "secondary"):
             st.session_state["lang"] = "Oromo"
             st.rerun()
@@ -657,34 +447,32 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
             <div class="wave-bar"></div>
             <div class="wave-bar"></div>
         </div>
-        <div style="color:#DC2626; font-size:12px; font-weight:700;">● Recording... tap to record or speak</div>
+        <div style="color:#DC2626; font-size:12px; font-weight:700; margin-bottom:12px;">● Recording... tap to record or speak</div>
     </div>
     """, unsafe_allow_html=True)
 
-    col_a1, col_a2, col_a3 = st.columns([1, 2, 1])
     audio_bytes_found = None
     audio_ext = "mp3"
 
-    with col_a2:
-        # Native recorder
-        audio_rec = st.audio_input("Speak your story (ድምጽ ይቅረጹ)", key="step1_audio_input")
-        if audio_rec:
-            audio_bytes_found = audio_rec.read()
+    # Native recorder
+    audio_rec = st.audio_input("Speak your story (ድምጽ ይቅረጹ)", key="step1_audio_input")
+    if audio_rec:
+        audio_bytes_found = audio_rec.read()
+        audio_ext = "mp3"
+
+    # Quiet upload link for all 6 formats
+    with st.expander("📁 or upload a voice note (.mp3/.wav/.m4a/.ogg/.oga/.webm)", expanded=False):
+        up_audio = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a", "ogg", "oga", "webm"], key="step1_upload_file")
+        if up_audio:
+            audio_bytes_found = up_audio.read()
+            audio_ext = up_audio.name.split(".")[-1].lower()
+
+    # Check unseen preset if applicable
+    if not audio_bytes_found and st.session_state.get("preset_loaded") == "unseen":
+        proof_mp3 = PROJECT_ROOT / "data" / "proof_voice.mp3"
+        if proof_mp3.exists():
+            audio_bytes_found = proof_mp3.read_bytes()
             audio_ext = "mp3"
-
-        # Approved deviation: quiet upload link for all 6 formats
-        with st.expander("📁 or upload a voice note (.mp3/.wav/.m4a/.ogg/.oga/.webm)", expanded=False):
-            up_audio = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a", "ogg", "oga", "webm"], key="step1_upload_file")
-            if up_audio:
-                audio_bytes_found = up_audio.read()
-                audio_ext = up_audio.name.split(".")[-1].lower()
-
-        # Check unseen preset if applicable
-        if not audio_bytes_found and st.session_state.get("preset_loaded") == "unseen":
-            proof_mp3 = PROJECT_ROOT / "data" / "proof_voice.mp3"
-            if proof_mp3.exists():
-                audio_bytes_found = proof_mp3.read_bytes()
-                audio_ext = "mp3"
 
     # 5. Process & Cache Transcription
     if audio_bytes_found:
@@ -733,7 +521,6 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
             st.rerun()
 
     with col_bb2:
-        # Decorative Black Pill with Cancel (clear) and Confirm
         st.markdown("""
         <div class="bottom-status-pill">
             <span style="cursor:pointer; color:#9CA3AF;">✕ Cancel</span>
@@ -771,73 +558,104 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
 
 
 # =============================================================================
-# STEPS 2..6 / DIGITAL TWIN WORKSPACE (PRESERVED WORKING DOWNSTREAM CODE)
+# SCREEN S2: STEP 2 OF 6 — UPLOAD EVIDENCE (Figma Image 14)
 # =============================================================================
-elif st.session_state["page"] == "my_application":
-    col_hdr_l, col_hdr_r = st.columns([3, 1])
-    with col_hdr_l:
-        st.markdown(f"""
-        <div style="margin-bottom:0.5rem;">
-            <div style="font-size:1.6rem; font-weight:800; color:#111827;">{t['nav_app']} — Step {st.session_state.get('step', 2)} of 6</div>
-            <div style="font-size:0.9rem; color:#6B7280;">Upload evidence and review your assembled grant application digital twin.</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_hdr_r:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_downstream_home"):
-            st.session_state["page"] = "home"
-            st.rerun()
+elif st.session_state["page"] == "my_application" and st.session_state.get("step", 1) == 2:
+    disp_name = applicant_display_name(st.session_state)
 
-    st.markdown("---")
+    # 1. Top Bar Row
+    st.markdown(f"""
+    <div class="top-bar-row">
+        <div style="font-size:13px; font-weight:600; color:#6B7280;">‹ Back</div>
+        <div class="top-bar-title">{disp_name}</div>
+        <div class="top-bar-step">Step 2 of 6</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    col_left, col_right = st.columns([1.2, 0.8])
+    # 2. Stepper Row
+    st.markdown("""
+    <div class="stepper-bar">
+        <span class="step-node completed">✓ Tell your story</span>
+        <span class="step-node active">● Upload evidence</span>
+        <span class="step-node">○ Review application</span>
+        <span class="step-node">○ Gaps & contradictions</span>
+        <span class="step-node">○ Declarations</span>
+        <span class="step-node">○ Readiness</span>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with col_left:
-        st.markdown("#### 📋 Official Grant Application Digital Twin")
-        twin_data = st.session_state.get("digital_twin_data", {})
-        render_giz_form(session_data=twin_data, height=720)
+    # 3. Center Header
+    st.markdown("""
+    <div style="text-align:center; max-width:640px; margin: 0 auto 1.5rem auto;">
+        <div style="font-size:1.65rem; font-weight:800; color:#111827; margin-bottom:4px;">Upload your documents</div>
+        <div style="font-size:0.95rem; color:#6B7280; margin-bottom:4px;">Trade licence and workshop photos help verify your business.</div>
+        <div style="font-size:0.9rem; color:#4B5563; font-family:'Noto Sans Ethiopic';">የንግድ ፈቃድ እና የስራ ቦታ ፎቶዎችን ይጫኑ::</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    with col_right:
-        st.markdown("#### 📥 Multimodal Evidence Upload")
+    # 4. Two Upload Cards with Dashed Dropzones
+    col_u1, col_u2 = st.columns(2)
 
+    with col_u1:
         st.markdown("""
-        <div class="tg-card" style="padding:12px; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:700; color:#111827; margin-bottom:4px;">2️⃣ 📄 License (የንግድ ፈቃድ / Trade License)</div>
-            <div style="font-size:10.5px; color:#6B7280;">Upload paper trade registration certificate or business license.</div>
+        <div class="upload-card-container">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span style="font-size:20px;">📄</span>
+                <span style="font-size:14px; font-weight:700; color:#111827;">Trade Licence Photo</span>
+            </div>
+            <div style="font-size:11px; color:#6B7280; font-family:'Noto Sans Ethiopic'; margin-bottom:8px;">የንግድ ፈቃድ ፎቶ</div>
+            <div style="font-size:11.5px; color:#6B7280; line-height:1.4;">Official municipal or federal business registration certificate.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_license = st.file_uploader("Upload License Photo", type=["jpg", "jpeg", "png"], key="lic_up_step2")
+        uploaded_license = st.file_uploader("Upload Trade Licence", type=["jpg", "jpeg", "png"], key="lic_up_step2")
         active_license_path = None
         if uploaded_license:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_lic:
                 tmp_lic.write(uploaded_license.read())
                 active_license_path = tmp_lic.name
+            st.image(uploaded_license, caption="Uploaded Trade License", use_container_width=True)
         elif st.session_state.get("preset_loaded") == "unseen":
             dummy_lic = PROJECT_ROOT / "data" / "test_assets" / "license_smudged.jpg"
             if dummy_lic.exists():
                 active_license_path = str(dummy_lic)
+                st.caption("🎲 Unseen Test License Attached")
 
+    with col_u2:
         st.markdown("""
-        <div class="tg-card" style="padding:12px; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:700; color:#111827; margin-bottom:4px;">3️⃣ 📸 Workshop (የስራ ቦታ ፎቶ / Facility Photo)</div>
-            <div style="font-size:10.5px; color:#6B7280;">Upload photo of your facility, machinery, or workshop workers.</div>
+        <div class="upload-card-container">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span style="font-size:20px;">📸</span>
+                <span style="font-size:14px; font-weight:700; color:#111827;">Workshop / Facility Photo</span>
+            </div>
+            <div style="font-size:11px; color:#6B7280; font-family:'Noto Sans Ethiopic'; margin-bottom:8px;">የስራ ቦታ ፎቶ</div>
+            <div style="font-size:11.5px; color:#6B7280; line-height:1.4;">Photo showing your equipment, production space, or team members.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_workshop = st.file_uploader("Upload Facility Photo", type=["jpg", "jpeg", "png"], key="work_up_step2")
+        uploaded_workshop = st.file_uploader("Upload Workshop Photo", type=["jpg", "jpeg", "png"], key="work_up_step2")
         active_workshop_path = None
         if uploaded_workshop:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_work:
                 tmp_work.write(uploaded_workshop.read())
                 active_workshop_path = tmp_work.name
+            st.image(uploaded_workshop, caption="Uploaded Workshop Facility", use_container_width=True)
         elif st.session_state.get("preset_loaded") == "unseen":
             dummy_work = PROJECT_ROOT / "data" / "test_assets" / "workshop_berbere.jpg"
             if dummy_work.exists():
                 active_workshop_path = str(dummy_work)
+                st.caption("🎲 Unseen Test Workshop Photo Attached")
 
-        st.write("")
-        trigger_intake = st.button("⚡ Process & Build Full Dossier", type="primary", use_container_width=True)
+    st.write("")
+    st.write("")
 
-        if trigger_intake:
-            with st.spinner("🚀 Running multimodal parallel extraction and scoring..."):
+    # 5. Bottom Navigation Bar
+    col_s2_b1, col_s2_b2 = st.columns(2)
+    with col_s2_b1:
+        if st.button("‹ Back to Step 1", key="btn_s2_back"):
+            st.session_state["step"] = 1
+            st.rerun()
+    with col_s2_b2:
+        if st.button("⚡ Process & Build Full Dossier ›", type="primary", use_container_width=True, key="btn_s2_process"):
+            with st.spinner("🚀 Running multimodal parallel extraction, mapping, and rubric evaluation..."):
                 lead_mod = st.session_state.get("lead_model", "gemini-2.5-flash")
                 cur_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
 
@@ -897,21 +715,45 @@ elif st.session_state["page"] == "my_application":
                     "gaps": [g.model_dump() for g in pack.gaps],
                 }
                 st.session_state["digital_twin_data"] = twin_payload
+                st.session_state["step"] = 3
                 st.rerun()
 
-    # Transparency Output
-    if "score_res" in st.session_state:
-        st.markdown("---")
-        st.markdown("### 📊 Transparency & Evaluation Truth Center")
-        score_res = st.session_state["score_res"]
-        readiness_res = st.session_state["readiness_res"]
-        sensitivity_res = st.session_state["sensitivity_res"]
-        col_t1, col_t2, col_t3 = st.columns(3)
-        with col_t1:
+
+# =============================================================================
+# STEPS 3..6 / DIGITAL TWIN WORKSPACE (PRESERVED WORKING DOWNSTREAM CODE)
+# =============================================================================
+elif st.session_state["page"] == "my_application":
+    col_hdr_l, col_hdr_r = st.columns([3, 1])
+    with col_hdr_l:
+        st.markdown(f"""
+        <div style="margin-bottom:0.5rem;">
+            <div style="font-size:1.6rem; font-weight:800; color:#111827;">{t['nav_app']} — Step {st.session_state.get('step', 3)} of 6</div>
+            <div style="font-size:0.9rem; color:#6B7280;">Review your assembled grant application digital twin with epistemic provenance.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_hdr_r:
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_downstream_home2"):
+            st.session_state["page"] = "home"
+            st.rerun()
+
+    st.markdown("---")
+
+    col_left, col_right = st.columns([1.2, 0.8])
+
+    with col_left:
+        st.markdown("#### 📋 Official Grant Application Digital Twin")
+        twin_data = st.session_state.get("digital_twin_data", {})
+        render_giz_form(session_data=twin_data, height=720)
+
+    with col_right:
+        if "score_res" in st.session_state:
+            st.markdown("#### 📊 Evaluation & Transparency")
+            score_res = st.session_state["score_res"]
+            readiness_res = st.session_state["readiness_res"]
+            sensitivity_res = st.session_state["sensitivity_res"]
+
             st.metric("Total Score", f"{score_res.total_score} / 100", delta=f"Track: {score_res.grid_variant.value}")
-        with col_t2:
-            st.metric("Readiness", f"{readiness_res['readiness_pct']}%")
-        with col_t3:
+            st.metric("Submission Readiness", f"{readiness_res['readiness_pct']}%")
             st.metric("Potential Total", f"{sensitivity_res['potential_total']} / 100 [POTENTIAL]")
 
 
@@ -928,7 +770,7 @@ elif st.session_state["page"] == "batch_review":
         </div>
         """, unsafe_allow_html=True)
     with col_rh2:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_rev_home"):
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_rev_home2"):
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -936,10 +778,10 @@ elif st.session_state["page"] == "batch_review":
 
     col_b1, col_b2 = st.columns([2, 1])
     with col_b1:
-        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up_main2")
+        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up_main3")
     with col_b2:
         st.markdown("##### ⚡ Quick Load Presets")
-        load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True, key="btn_load_12")
+        load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True, key="btn_load_12_main")
 
     if load_12_btn or uploaded_batch:
         if uploaded_batch:
@@ -954,7 +796,7 @@ elif st.session_state["page"] == "batch_review":
     if "raw_batch_data" in st.session_state:
         batch_items = st.session_state["raw_batch_data"]
         
-        if st.button("⚡ Rank Batch & Defend Shortlist", type="primary", use_container_width=True, key="btn_rank_batch"):
+        if st.button("⚡ Rank Batch & Defend Shortlist", type="primary", use_container_width=True, key="btn_rank_batch_main"):
             with st.spinner("Sorting deterministically and synthesizing committee defense..."):
                 scored_entries = []
                 contra_dict = {}
@@ -991,6 +833,20 @@ elif st.session_state["page"] == "batch_review":
                     )
                     scored_entries.append((b_name, sc_res))
 
+                    raw_contras = item.get("contradictions", [])
+                    contra_objs = [
+                        Contradiction(
+                            claim_a=c.get("claim_a", ""),
+                            claim_b=c.get("claim_b", ""),
+                            severity=ContradictionSeverity(c.get("severity", "WARNING")),
+                            kind=ContradictionKind(c.get("kind", "DISCREPANCY")),
+                            explanation=c.get("explanation", "")
+                        )
+                        for c in raw_contras
+                    ]
+                    if contra_objs:
+                        contra_dict[b_name] = contra_objs
+
                 cur_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
                 shortlist = rank_batch(scored_entries, contradictions_map=contra_dict, api_key=cur_key)
                 st.session_state["shortlist_res"] = shortlist
@@ -1024,7 +880,7 @@ elif st.session_state["page"] == "evidence_library":
         st.markdown(f"### 📁 {t['nav_evidence']}")
         st.caption("Verifiable audit trail tracking every extracted claim, OCR token, and confidence metric.")
     with col_eh2:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_ev_home"):
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_ev_home2"):
             st.session_state["page"] = "home"
             st.rerun()
 
