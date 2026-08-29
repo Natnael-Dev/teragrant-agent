@@ -1,10 +1,10 @@
 """
-TeraGrant Agent — AI Intake & Evaluation Platform (Batch 25 App Shell & Home Page).
+TeraGrant Agent — AI Intake & Evaluation Platform (Batch 25 Trilingual Rebuild).
 AI Builder Hackathon 2026 | Challenge 1 (SME Grant Automation)
 
-Figma-faithful application shell with clean white sidebar, navigation router,
-pixel-accurate Home Page (Image 11), and preserved working workspaces for My Application,
-Batch Review, and Evidence Library.
+Figma-faithful application shell with clean white sidebar, interactive trilingual language switcher
+(English / አማርኛ / Afaan Oromoo) that dynamically transforms the entire UI, pixel-accurate Home Page (Image 11),
+and preserved working workspaces for My Application, Batch Review, and Evidence Library.
 """
 
 import base64
@@ -103,6 +103,82 @@ from app.ui_helpers import evidence_pct, row_status, kpi_stats
 
 
 # =============================================================================
+# TRILINGUAL CONTENT DICTIONARY
+# =============================================================================
+I18N = {
+    "English": {
+        "hero_title": "Talk. Upload. Verify. Score.<br/>Defend.",
+        "hero_subtitle": "Turn a business story into a fundable application — without inventing facts.",
+        "step1_title": "Speak",
+        "step1_desc": "Tell us about your business in your own words.",
+        "step2_title": "Upload",
+        "step2_desc": "Take photos of your licence and workshop.",
+        "step3_title": "Verify",
+        "step3_desc": "We build the application and show what still needs proof.",
+        "btn_start": "🎙️ Start Application >",
+        "btn_reviewer": "👥 Reviewer Dashboard",
+        "legend_title": "EVIDENCE STATUS KEY",
+        "legend_verified": "Supported by an uploaded document",
+        "legend_stated": "Provided by the applicant",
+        "legend_inferred": "Inferred by AI — not independently established",
+        "legend_confirm": "Requires human confirmation",
+        "legend_missing": "Not yet established",
+        "legend_contra": "Two sources disagree",
+        "nav_home": "🏠 Home",
+        "nav_app": "📋 My Application",
+        "nav_review": "👥 Batch Review",
+        "nav_evidence": "📁 Evidence Library",
+    },
+    "Amharic": {
+        "hero_title": "ይናገሩ። ይጫኑ። ያረጋግጡ። ይመዝኑ።<br/>ይሟገቱ።",
+        "hero_subtitle": "የንግድ ታሪክዎን ያለ ምንም የፈጠራ ወሬ ወደ ተቀባይነት ያለው የድጋፍ ማመልከቻ ይቀይሩ።",
+        "step1_title": "ይናገሩ",
+        "step1_desc": "ስለ ንግድዎ በራስዎ ቋንቋ እና አገላለጽ ይንገሩን።",
+        "step2_title": "ይጫኑ",
+        "step2_desc": "የንግድ ፈቃድዎን እና የስራ ቦታዎን ፎቶዎች ያንሱ።",
+        "step3_title": "ያረጋግጡ",
+        "step3_desc": "ማመልከቻውን አዘጋጅተን ማረጋገጫ የሚያስፈልጋቸውን እናሳያለን።",
+        "btn_start": "🎙️ ማመልከቻ ይጀምሩ >",
+        "btn_reviewer": "👥 የገምጋሚ ዳሽቦርድ",
+        "legend_title": "የማስረጃ ሁኔታ ቁልፍ (EVIDENCE STATUS KEY)",
+        "legend_verified": "በተያያዘ ሰነድ የተረጋገጠ",
+        "legend_stated": "በአመልካቹ በድምጽ የተገለጸ",
+        "legend_inferred": "በአይ አእምሮ የተገመተ — ራሱን ችሎ ያልተረጋገጠ",
+        "legend_confirm": "የሰው ማረጋገጫ የሚያስፈልገው",
+        "legend_missing": "እስካሁን ያልቀረበ",
+        "legend_contra": "ሁለት መረጃዎች የተጋጩበት",
+        "nav_home": "🏠 መነሻ ገጽ",
+        "nav_app": "📋 የእኔ ማመልከቻ",
+        "nav_review": "👥 የቡድን ግምገማ",
+        "nav_evidence": "📁 የማስረጃ ቤተ-መጽሐፍት",
+    },
+    "Oromo": {
+        "hero_title": "Dubbadhaa. Fe'aa. Mirkaneessaa. Qabaa.<br/>Falmadhaa.",
+        "hero_subtitle": "Osoo soba hin uumin seenaa daldala keessanii gara iyyannoo fudhatama qabuutti jijjiiraa.",
+        "step1_title": "Dubbadhaa",
+        "step1_desc": "Waa'ee daldala keessanii jechoota keessaniin nuutti himaa.",
+        "step2_title": "Fe'aa",
+        "step2_desc": "Suuraa heeyyama daldalaa fi iddoo hojii keessanii kaasaa.",
+        "step3_title": "Mirkaneessaa",
+        "step3_desc": "Iyyannoo ijaarree wantoota ragaa barbaadan isiniif agarsiifna.",
+        "btn_start": "🎙️ Iyyannoo Jalqabaa >",
+        "btn_reviewer": "👥 Daashboordii Gamaggamaa",
+        "legend_title": "KALLATTII HAALA RAGAA (EVIDENCE STATUS KEY)",
+        "legend_verified": "Ragaa galmeetiin mirkanaa'e",
+        "legend_stated": "Iyyataadhaan kan dubbatame",
+        "legend_inferred": "AI'n kan tilmaamame — of danda'ee kan hin mirkanoofne",
+        "legend_confirm": "Mirkaneessa namaa kan barbaadu",
+        "legend_missing": "Hanga ammaatti kan hin dhiyaanne",
+        "legend_contra": "Ragaaleen lama kan wal-faallessan",
+        "nav_home": "🏠 Fuula Duraa",
+        "nav_app": "📋 Iyyannoo Kiyya",
+        "nav_review": "👥 Gamaggama Garee",
+        "nav_evidence": "📁 Kuusaa Ragaalee",
+    },
+}
+
+
+# =============================================================================
 # PAGE CONFIGURATION & GLOBAL DESIGN SYSTEM (Inter, Noto Sans Ethiopic, Tokens)
 # =============================================================================
 st.set_page_config(
@@ -182,30 +258,7 @@ st.markdown("""
     .chip-missing      { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
     .chip-contradicted { background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; }
 
-    /* 6. Language Switcher Pill */
-    .lang-pill-container {
-        display: flex;
-        justify-content: center;
-        gap: 8px;
-        margin-bottom: 24px;
-    }
-    .lang-pill {
-        background: #FFFFFF;
-        border: 1px solid #E5E7EB;
-        padding: 6px 16px;
-        border-radius: 20px;
-        font-size: 11.5px;
-        font-weight: 600;
-        color: #4B5563;
-        display: inline-block;
-    }
-    .lang-pill.active {
-        background: #111827;
-        color: #FFFFFF;
-        border-color: #111827;
-    }
-
-    /* 7. Numbered Step Cards on Home Screen */
+    /* 6. Numbered Step Cards on Home Screen */
     .home-step-card {
         background: #FFFFFF;
         border: 1px solid #E5E7EB;
@@ -236,6 +289,8 @@ st.markdown("""
 # =============================================================================
 if "page" not in st.session_state:
     st.session_state["page"] = "home"
+if "lang" not in st.session_state:
+    st.session_state["lang"] = "English"
 if "batch_portfolio" not in st.session_state:
     sample_path = PROJECT_ROOT / "data" / "sample_batch_12_applicants.json"
     if sample_path.exists():
@@ -246,8 +301,11 @@ if "batch_portfolio" not in st.session_state:
 
 
 # =============================================================================
-# STEP 2: APP SHELL (FIGMA LIGHT SIDEBAR)
+# APP SHELL: SIDEBAR NAVIGATION & DEVELOPER MODE
 # =============================================================================
+cur_lang = st.session_state["lang"]
+t = I18N.get(cur_lang, I18N["English"])
+
 with st.sidebar:
     st.markdown("""
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
@@ -262,25 +320,25 @@ with st.sidebar:
     # Navigation Buttons
     cur_page = st.session_state.get("page", "home")
 
-    if st.button("🏠 Home", use_container_width=True, type="primary" if cur_page == "home" else "secondary"):
+    if st.button(t["nav_home"], use_container_width=True, type="primary" if cur_page == "home" else "secondary"):
         st.session_state["page"] = "home"
         st.rerun()
 
-    if st.button("📋 My Application", use_container_width=True, type="primary" if cur_page == "my_application" else "secondary"):
+    if st.button(t["nav_app"], use_container_width=True, type="primary" if cur_page == "my_application" else "secondary"):
         st.session_state["page"] = "my_application"
         st.rerun()
 
-    if st.button("👥 Batch Review", use_container_width=True, type="primary" if cur_page == "batch_review" else "secondary"):
+    if st.button(t["nav_review"], use_container_width=True, type="primary" if cur_page == "batch_review" else "secondary"):
         st.session_state["page"] = "batch_review"
         st.rerun()
 
-    if st.button("📁 Evidence Library", use_container_width=True, type="primary" if cur_page == "evidence_library" else "secondary"):
+    if st.button(t["nav_evidence"], use_container_width=True, type="primary" if cur_page == "evidence_library" else "secondary"):
         st.session_state["page"] = "evidence_library"
         st.rerun()
 
     st.markdown("---")
 
-    # Developer Mode Expander (Collapsed)
+    # Developer Mode Expander
     with st.expander("🛠 Developer Mode", expanded=False):
         env_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
         dev_api_key = st.text_input(
@@ -319,26 +377,45 @@ with st.sidebar:
 
 
 # =============================================================================
-# STEP 3: SCREEN S0 — RESTYLED HOME PAGE (Figma Image 11)
+# SCREEN S0: RESTYLED HOME PAGE (Image 11) WITH INTERACTIVE TRILINGUAL SWITCHER
 # =============================================================================
 if st.session_state["page"] == "home":
-    # Language Segmented Pills (English active dark)
-    st.markdown("""
-    <div class="lang-pill-container">
-        <span class="lang-pill active">English</span>
-        <span class="lang-pill">አማርኛ</span>
-        <span class="lang-pill">Afaan Oromoo</span>
-    </div>
-    """, unsafe_allow_html=True)
+    # Top Bar: Logo on Left, Gemini Connected on Right
+    col_t_l, col_t_r = st.columns([2, 1])
+    with col_t_l:
+        st.markdown("""
+        <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:14px; color:#111827;">
+            <span style="color:#059669; font-size:18px;">🌱</span> TeraGrant Agent
+        </div>
+        """, unsafe_allow_html=True)
+    with col_t_r:
+        st.markdown("<div style='text-align:right; font-size:11px; color:#059669; font-weight:700;'>● Gemini Connected</div>", unsafe_allow_html=True)
+
+    st.write("")
+
+    # Interactive Trilingual Segmented Pill Switcher
+    col_lp1, col_lp2, col_lp3, col_lp4, col_lp5 = st.columns([2, 1, 1, 1, 2])
+    with col_lp2:
+        if st.button("English", key="lang_en", use_container_width=True, type="primary" if cur_lang == "English" else "secondary"):
+            st.session_state["lang"] = "English"
+            st.rerun()
+    with col_lp3:
+        if st.button("አማርኛ", key="lang_am", use_container_width=True, type="primary" if cur_lang == "Amharic" else "secondary"):
+            st.session_state["lang"] = "Amharic"
+            st.rerun()
+    with col_lp4:
+        if st.button("Afaan Oromoo", key="lang_or", use_container_width=True, type="primary" if cur_lang == "Oromo" else "secondary"):
+            st.session_state["lang"] = "Oromo"
+            st.rerun()
 
     # Hero Section
-    st.markdown("""
-    <div style="text-align:center; margin-bottom: 2.5rem;">
+    st.markdown(f"""
+    <div style="text-align:center; margin-top: 1rem; margin-bottom: 2.5rem;">
         <div style="font-size: 2.5rem; font-weight: 800; color: #111827; letter-spacing: -0.8px; margin-bottom: 0.5rem; line-height: 1.2;">
-            Talk. Upload. Verify. Score.<br/>Defend.
+            {t["hero_title"]}
         </div>
         <div style="font-size: 1.05rem; color: #6B7280; max-width: 560px; margin: 0 auto; line-height: 1.4;">
-            Turn a business story into a fundable application — without inventing facts.
+            {t["hero_subtitle"]}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -346,30 +423,30 @@ if st.session_state["page"] == "home":
     # 3 Numbered Step Cards (Image 11)
     col_c1, col_c2, col_c3 = st.columns(3)
     with col_c1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="home-step-card">
             <div class="home-step-icon" style="background:#EFF6FF; color:#2563EB;">🎙️</div>
             <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">1</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Speak</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">Tell us about your business in your own words.</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step1_title"]}</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step1_desc"]}</div>
         </div>
         """, unsafe_allow_html=True)
     with col_c2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="home-step-card">
             <div class="home-step-icon" style="background:#F5F3FF; color:#7C3AED;">⬆️</div>
             <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">2</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Upload</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">Take photos of your licence and workshop.</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step2_title"]}</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step2_desc"]}</div>
         </div>
         """, unsafe_allow_html=True)
     with col_c3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="home-step-card">
             <div class="home-step-icon" style="background:#ECFDF5; color:#059669;">🛡️</div>
             <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">3</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Verify</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">We build the application and show what still needs proof.</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step3_title"]}</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step3_desc"]}</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -381,11 +458,11 @@ if st.session_state["page"] == "home":
     with col_b2:
         btn_col_a, btn_col_b = st.columns(2)
         with btn_col_a:
-            if st.button("🎙️ Start Application >", type="primary", use_container_width=True):
+            if st.button(t["btn_start"], type="primary", use_container_width=True):
                 st.session_state["page"] = "my_application"
                 st.rerun()
         with btn_col_b:
-            if st.button("👥 Reviewer Dashboard", use_container_width=True):
+            if st.button(t["btn_reviewer"], use_container_width=True):
                 st.session_state["page"] = "batch_review"
                 st.rerun()
 
@@ -393,35 +470,35 @@ if st.session_state["page"] == "home":
     st.write("")
 
     # EVIDENCE STATUS KEY (Bottom Legend exact per Figma)
-    st.markdown("""
+    st.markdown(f"""
     <div style="margin-top: 3.5rem; text-align:center;">
-        <div style="font-size:10px; font-weight:800; color:#6B7280; letter-spacing:0.8px; margin-bottom:12px;">EVIDENCE STATUS KEY</div>
+        <div style="font-size:10px; font-weight:800; color:#6B7280; letter-spacing:0.8px; margin-bottom:12px;">{t["legend_title"]}</div>
         <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:14px; font-size:11px; color:#4B5563;">
-            <span><span class="chip chip-verified">Document Verified</span> Supported by an uploaded document</span>
-            <span><span class="chip chip-stated">Applicant Stated</span> Provided by the applicant</span>
-            <span><span class="chip chip-inferred">AI Inferred</span> Inferred by AI — not independently established</span>
-            <span><span class="chip chip-confirmation">Needs Confirmation</span> Requires human confirmation</span>
-            <span><span class="chip chip-missing">Missing</span> Not yet established</span>
-            <span><span class="chip chip-contradicted">⚠️ Contradicted</span> Two sources disagree</span>
+            <span><span class="chip chip-verified">Document Verified</span> {t["legend_verified"]}</span>
+            <span><span class="chip chip-stated">Applicant Stated</span> {t["legend_stated"]}</span>
+            <span><span class="chip chip-inferred">AI Inferred</span> {t["legend_inferred"]}</span>
+            <span><span class="chip chip-confirmation">Needs Confirmation</span> {t["legend_confirm"]}</span>
+            <span><span class="chip chip-missing">Missing</span> {t["legend_missing"]}</span>
+            <span><span class="chip chip-contradicted">⚠️ Contradicted</span> {t["legend_contra"]}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
 # =============================================================================
-# MY APPLICATION WORKSPACE (STEP 4: DO NOT TOUCH BATCH-23 INTAKE WORKSPACE)
+# MY APPLICATION WORKSPACE (PRESERVED WORKING INTAKE & DIGITAL TWIN)
 # =============================================================================
 elif st.session_state["page"] == "my_application":
     col_hdr_l, col_hdr_r = st.columns([3, 1])
     with col_hdr_l:
-        st.markdown("""
+        st.markdown(f"""
         <div style="margin-bottom:0.5rem;">
-            <div style="font-size:1.6rem; font-weight:800; color:#111827;">Applicant Intake & Digital Twin Workspace</div>
+            <div style="font-size:1.6rem; font-weight:800; color:#111827;">{t['nav_app']}</div>
             <div style="font-size:0.9rem; color:#6B7280;">Upload voice, license, and workshop evidence to assemble your fundable application twin in real time.</div>
         </div>
         """, unsafe_allow_html=True)
     with col_hdr_r:
-        if st.button("← Back to Home", use_container_width=True):
+        if st.button("← " + t["nav_home"], use_container_width=True):
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -463,7 +540,7 @@ elif st.session_state["page"] == "my_application":
             if recorded_audio:
                 active_audio_bytes = recorded_audio.read()
         with voice_tab2:
-            uploaded_audio_file = st.file_uploader("Upload Audio", type=["mp3", "wav", "oga", "ogg", "m4a"], key="audio_up")
+            uploaded_audio_file = st.file_uploader("Upload Audio", type=["mp3", "wav", "oga", "ogg", "m4a"], key="audio_up_main")
             if uploaded_audio_file:
                 active_audio_bytes = uploaded_audio_file.read()
 
@@ -479,7 +556,7 @@ elif st.session_state["page"] == "my_application":
             <div style="font-size:10.5px; color:#6B7280;">Upload paper trade registration certificate or business license.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_license = st.file_uploader("Upload License Photo", type=["jpg", "jpeg", "png"], key="lic_up")
+        uploaded_license = st.file_uploader("Upload License Photo", type=["jpg", "jpeg", "png"], key="lic_up_main")
         active_license_path = None
         if uploaded_license:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_lic:
@@ -497,7 +574,7 @@ elif st.session_state["page"] == "my_application":
             <div style="font-size:10.5px; color:#6B7280;">Upload photo of your facility, machinery, or workshop workers.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_workshop = st.file_uploader("Upload Facility Photo", type=["jpg", "jpeg", "png"], key="work_up")
+        uploaded_workshop = st.file_uploader("Upload Facility Photo", type=["jpg", "jpeg", "png"], key="work_up_main")
         active_workshop_path = None
         if uploaded_workshop:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_work:
@@ -627,19 +704,19 @@ elif st.session_state["page"] == "my_application":
 
 
 # =============================================================================
-# BATCH REVIEW WORKSPACE (STEP 4: DO NOT TOUCH BATCH-23 REVIEWER TABLE)
+# BATCH REVIEW WORKSPACE (PRESERVED WORKING REVIEWER TAB)
 # =============================================================================
 elif st.session_state["page"] == "batch_review":
     col_rh1, col_rh2 = st.columns([3, 1])
     with col_rh1:
-        st.markdown("""
+        st.markdown(f"""
         <div style="margin-bottom:0.5rem;">
-            <div style="font-size:1.6rem; font-weight:800; color:#111827;">Reviewer Batch Ranking & Portfolio Defense</div>
+            <div style="font-size:1.6rem; font-weight:800; color:#111827;">{t['nav_review']}</div>
             <div style="font-size:0.9rem; color:#6B7280;">Reviewer committee workspace for evaluating and defending batches of scored SME proposals.</div>
         </div>
         """, unsafe_allow_html=True)
     with col_rh2:
-        if st.button("← Back to Home", use_container_width=True):
+        if st.button("← " + t["nav_home"], use_container_width=True):
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -647,7 +724,7 @@ elif st.session_state["page"] == "batch_review":
 
     col_b1, col_b2 = st.columns([2, 1])
     with col_b1:
-        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up")
+        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up_main")
     with col_b2:
         st.markdown("##### ⚡ Quick Load Presets")
         load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True)
@@ -759,10 +836,10 @@ elif st.session_state["page"] == "batch_review":
 elif st.session_state["page"] == "evidence_library":
     col_eh1, col_eh2 = st.columns([3, 1])
     with col_eh1:
-        st.markdown("### 📁 Multimodal Evidence & Provenance Library")
+        st.markdown(f"### 📁 {t['nav_evidence']}")
         st.caption("Verifiable audit trail tracking every extracted claim, OCR token, and confidence metric.")
     with col_eh2:
-        if st.button("← Back to Home", use_container_width=True):
+        if st.button("← " + t["nav_home"], use_container_width=True):
             st.session_state["page"] = "home"
             st.rerun()
 
