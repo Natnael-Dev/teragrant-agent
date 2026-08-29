@@ -3,45 +3,122 @@
 {% block content %}
 <div class="topbar-white">
   <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
-    <a href="/wizard/1" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back to Step 1</a>
+    <a href="/wizard/1?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back to Step 1</a>
     <span style="color: #E5E7EB;">|</span>
     <span>AI Guided Voice Interview</span>
   </div>
-  <div style="font-size: 12px; font-weight: 600; color: #059669;">Trilingual Audio Assistant</div>
+  <div style="font-size: 12px; font-weight: 600; color: #059669;">
+    Question {{ step_index + 1 }} of {{ total_steps }}
+  </div>
 </div>
 
 <div class="container-wizard" style="max-width: 680px;">
-  <div style="text-align: center; margin-bottom: 28px;">
-    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Interactive 12-Step Oral Intake</h2>
-    <p style="font-size: 14px; color: #6B7280; margin: 0;">Listen to the question, record your oral answer, and let the auditor populate the digital twin.</p>
+  <!-- Thin Progress Bar -->
+  <div class="progress-bar-bg">
+    <div class="progress-bar-fill" style="width: {{ ((step_index + 1) / total_steps) * 100 }}%;"></div>
   </div>
 
-  <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px; text-align: center;">
-    <div style="font-size: 12px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 8px;">
-      Question 1 of 12: Business Identity & Overview
+  <!-- Header & Language Segmented Control -->
+  <div style="text-align: center; margin-bottom: 24px;">
+    <div class="seg">
+      <a href="/wizard/interview?step={{ step_index }}&lang=en" class="{{ 'active' if lang == 'en' else '' }}">English</a>
+      <a href="/wizard/interview?step={{ step_index }}&lang=am" class="{{ 'active' if lang == 'am' else '' }}">አማርኛ</a>
+      <a href="/wizard/interview?step={{ step_index }}&lang=om" class="{{ 'active' if lang == 'om' else '' }}">Afaan Oromoo</a>
     </div>
-    <p style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 16px;">
-      "What is the official registered name of your business and where is your primary workshop located?"
-    </p>
-
-    <div style="margin-bottom: 24px;">
-      <audio controls style="width: 100%; max-width: 380px;">
-        <source src="" type="audio/mpeg">
-        Your browser does not support audio playback.
-      </audio>
-    </div>
-
-    <!-- Recorder -->
-    <div class="record-circle-96" id="record-circle" style="width: 80px; height: 80px;">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-    </div>
-    <div style="font-size: 12px; font-weight: 700; color: #DC2626; margin-top: 8px;">Tap to answer question 1</div>
   </div>
 
-  <div style="text-align: center; margin-top: 24px;">
-    <a href="/wizard/2" class="btn btn-secondary">
-      Skip interview and proceed with current answers ›
-    </a>
+  <!-- Main Interview Card -->
+  <div class="interview-card">
+    <!-- AI Question Bubble -->
+    <div class="ai-bubble">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <div class="ai-avatar-badge">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <span style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase;">
+          TeraGrant AI Auditor • Step {{ current_step.step_id }}
+        </span>
+      </div>
+
+      <div style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 6px; line-height: 1.35;">
+        {{ current_step.question_en }}
+      </div>
+
+      {% if lang == 'am' or lang == 'Amharic' %}
+      <div style="font-size: 15px; color: #4B5563; font-family: 'Noto Sans Ethiopic'; margin-bottom: 12px;">
+        {{ current_step.question_am }}
+      </div>
+      {% elif lang == 'om' or lang == 'Oromo' %}
+      <div style="font-size: 15px; color: #4B5563; margin-bottom: 12px;">
+        {{ current_step.question_or }}
+      </div>
+      {% endif %}
+
+      <!-- Audio Player with TTS Autoplay -->
+      <div style="margin-top: 12px;">
+        <audio controls autoplay style="width: 100%; height: 36px; border-radius: 6px;">
+          <source src="/api/tts?text={{ tts_text | urlencode }}&lang={{ lang }}" type="audio/mpeg">
+          Your browser does not support audio playback.
+        </audio>
+      </div>
+    </div>
+
+    <!-- Hidden input for current step index -->
+    <input type="hidden" id="interview-step-idx" value="{{ step_index }}">
+
+    <!-- Mic Recorder Component (Grey Idle / Red Recording) -->
+    <div class="recorder-wrapper" style="margin: 16px auto;">
+      <div class="record-circle-96" id="record-circle">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </div>
+
+      <div class="wave-bars" id="wave-bars">
+        {% for i in range(24) %}
+        <div class="wave-bar"></div>
+        {% endfor %}
+      </div>
+
+      <div class="recorder-caption" id="record-caption">Tap to speak your answer</div>
+    </div>
+
+    <!-- Text Fallback Option -->
+    <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: center; max-width: 480px; margin-left: auto; margin-right: auto;">
+      <input type="text" id="interview-text-input" placeholder="Or type your answer here..." style="flex: 1; height: 40px; border: 1px solid #D1D5DB; border-radius: 8px; padding: 0 12px; font-size: 13px; font-family: inherit;">
+      <button type="button" class="btn btn-secondary" style="height: 40px; font-size: 13px; padding: 0 14px;" onclick="submitInterviewAnswer(null, document.getElementById('interview-text-input').value)">
+        Submit Text
+      </button>
+    </div>
+
+    <!-- Extracted Feedback Area -->
+    <div id="interview-feedback-box" style="margin-top: 14px;"></div>
+
+    <!-- User Transcript Bubble (Hidden until answered) -->
+    <div class="user-bubble" id="interview-user-bubble" style="display: none;">
+      <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 4px;">Your Spoken Response</div>
+      <div id="interview-user-text" style="font-size: 13px; color: #111827; font-style: italic;"></div>
+    </div>
+
+    <!-- Navigation Action Row -->
+    <div class="interview-actions">
+      <a href="/api/interview/reset?lang={{ lang }}" class="btn btn-secondary" style="font-size: 12px; height: 38px; color: #6B7280;">
+        🔄 Restart Interview
+      </a>
+
+      <div style="display: flex; gap: 8px;">
+        {% if step_index < total_steps - 1 %}
+        <a href="/wizard/interview?step={{ step_index + 1 }}&lang={{ lang }}" class="btn btn-secondary" style="font-size: 13px; height: 38px;">
+          Skip ↷
+        </a>
+        <a id="btn-interview-next" href="/wizard/interview?step={{ step_index + 1 }}&lang={{ lang }}" class="btn btn-primary" style="font-size: 13px; height: 38px;">
+          Next Question ➡
+        </a>
+        {% else %}
+        <a href="/api/interview/finish?lang={{ lang }}" class="btn btn-primary" style="font-size: 14px; height: 42px; background: #059669;">
+          🏁 Finish & Score Application ›
+        </a>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

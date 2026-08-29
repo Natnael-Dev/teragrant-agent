@@ -156,6 +156,7 @@ p.sub {
   cursor: pointer;
   font-family: inherit;
   transition: all 0.15s ease;
+  text-decoration: none;
 }
 
 .btn-primary {
@@ -181,6 +182,26 @@ p.sub {
 
 .btn-secondary:hover {
   background: #F9FAFB;
+}
+
+.btn-green-link {
+  font-size: 14px;
+  font-weight: 600;
+  color: #059669;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-green-link:hover {
+  background: #D1FAE5;
+  border-color: #6EE7B7;
 }
 
 .key {
@@ -256,30 +277,45 @@ p.sub {
   font-weight: 600;
 }
 
-/* STEP 1 RECORDER & WAVEFORM */
+/* STEP 1 RECORDER & WAVEFORM - IDLE VS RECORDING */
 .recorder-wrapper {
   text-align: center;
   margin: 28px auto 16px auto;
   max-width: 480px;
 }
 
+/* IDLE: 96px grey circle with grey icon */
 .record-circle-96 {
   width: 96px;
   height: 96px;
   border-radius: 50%;
-  background: #DC2626;
+  background: #E5E7EB;
+  border: 1px solid #D1D5DB;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #FFFFFF;
+  color: #6B7280;
   margin: 0 auto 16px auto;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: all 0.2s ease;
 }
 
-.record-circle-96.pulsing {
+.record-circle-96 svg {
+  stroke: #6B7280;
+  transition: stroke 0.2s ease;
+}
+
+/* RECORDING: Red circle + white icon + CSS pulse ring */
+.record-circle-96.recording {
+  background: #DC2626;
+  border-color: #DC2626;
+  color: #FFFFFF;
   box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
   animation: pulse-ring 1.8s infinite;
+}
+
+.record-circle-96.recording svg {
+  stroke: #FFFFFF;
 }
 
 @keyframes pulse-ring {
@@ -297,32 +333,47 @@ p.sub {
   margin-bottom: 10px;
 }
 
+/* IDLE: Static grey waveform bars */
 .wave-bar {
   width: 3px;
-  background: #DC2626;
+  background: #D1D5DB;
   border-radius: 2px;
   height: 6px;
-  transition: height 0.1s ease;
+  transition: all 0.1s ease;
 }
 
-.wave-bars.active .wave-bar {
+/* RECORDING: Red animated waveform bars */
+.wave-bars.active .wave-bar,
+.wave-bars.recording .wave-bar {
+  background: #DC2626;
   animation: wave 1.2s ease-in-out infinite alternate;
 }
 
-.wave-bars.active .wave-bar:nth-child(2n) { animation-delay: 0.15s; }
-.wave-bars.active .wave-bar:nth-child(3n) { animation-delay: 0.3s; }
-.wave-bars.active .wave-bar:nth-child(4n) { animation-delay: 0.45s; }
+.wave-bars.active .wave-bar:nth-child(2n),
+.wave-bars.recording .wave-bar:nth-child(2n) { animation-delay: 0.15s; }
+.wave-bars.active .wave-bar:nth-child(3n),
+.wave-bars.recording .wave-bar:nth-child(3n) { animation-delay: 0.3s; }
+.wave-bars.active .wave-bar:nth-child(4n),
+.wave-bars.recording .wave-bar:nth-child(4n) { animation-delay: 0.45s; }
 
 @keyframes wave {
   0% { transform: scaleY(0.3); }
   100% { transform: scaleY(1.0); }
 }
 
+/* IDLE CAPTION */
 .recorder-caption {
   font-size: 12px;
+  font-weight: 500;
+  color: #6B7280;
+  margin-bottom: 12px;
+  transition: color 0.2s ease;
+}
+
+/* RECORDING CAPTION */
+.recorder-caption.recording {
   font-weight: 700;
   color: #DC2626;
-  margin-bottom: 12px;
 }
 
 /* WHATSAPP BUBBLE */
@@ -428,4 +479,67 @@ p.sub {
 .dropzone-box:hover {
   border-color: #059669;
   background: #F0FDF4;
+}
+
+/* GUIDED INTERVIEW STYLES */
+.interview-card {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.ai-bubble {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-left: 4px solid #059669;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: left;
+  margin-bottom: 24px;
+}
+
+.ai-avatar-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #ECFDF5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.user-bubble {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: left;
+  margin: 16px 0;
+}
+
+.progress-bar-bg {
+  background: #E5E7EB;
+  height: 4px;
+  border-radius: 2px;
+  margin: 12px 0 24px 0;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  background: #059669;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.interview-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
 }

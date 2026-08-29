@@ -1,21 +1,30 @@
 """
-FastAPI Presentation-Layer Server for TeraGrant Agent (Batch 28F).
-Serves hand-written, pixel-perfect HTML/CSS templates and JSON APIs.
+FastAPI Presentation-Layer Server for TeraGrant Agent (Batch 29F).
+Serves hand-written, pixel-perfect HTML/CSS templates, TTS audio, and JSON APIs.
 """
 
+import io
 import os
 import json
+import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 from fastapi import FastAPI, Request, Form, File, UploadFile, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
 from app.wizard_logic import transcribe_step1, applicant_display_name, build_fact_chips
 from app.review_logic import get_reviewer_data
+from app.tts_engine import generate_speech_audio
+from agents.interview_agent import (
+    INTERVIEW_STEPS,
+    extract_answer,
+    merge_answer,
+    synthesize_audio_extraction,
+)
 from agents.intake_orchestrator import run_intake_parallel
 from agents.mapper_agent import generate_application_pack
 from agents.eligibility_agent import run_eligibility_gate
@@ -34,6 +43,9 @@ app = FastAPI(title="TeraGrant Agent API", version="2.0.0")
 app.mount("/static", StaticFiles(directory=str(PROJECT_ROOT / "app" / "static")), name="static")
 templates = Jinja2Templates(directory=str(PROJECT_ROOT / "app" / "templates"))
 
+# Global In-Memory TTS Cache
+TTS_CACHE: Dict[str, bytes] = {}
+
 # Global Demo Session State
 SESSION: Dict[str, Any] = {
     "applicant_name": "New Applicant",
@@ -46,6 +58,8 @@ SESSION: Dict[str, Any] = {
     "scoring_res": None,
     "readiness_res": None,
     "consent_records": [],
+    "interview_data": {},
+    "interview_transcripts": [],
     "digital_twin_data": {
         "company_name": "Almaz Spice Mill PLC",
         "tin_number": "0047281903",
@@ -130,6 +144,38 @@ async def home_page(request: Request, lang: str = Query("en")):
     )
 
 
+@app.get("/wizard/interview", response_class=HTMLResponse)
+async def wizard_interview(request: Request, step: int = Query(0), lang: str = Query("en")):
+    norm_lang = lang if lang in I18N else "en"
+    app_name = applicant_display_name(SESSION)
+
+    total_steps = len(INTERVIEW_STEPS)
+    safe_step = max(0, min(step, total_steps - 1))
+    current_step = INTERVIEW_STEPS[safe_step]
+
+    # Select TTS text based on target language
+    if norm_lang == "am":
+        tts_text = current_step.question_am
+    elif norm_lang == "om":
+        tts_text = current_step.question_or
+    else:
+        tts_text = current_step.question_en
+
+    return templates.TemplateResponse(
+        request=request,
+        name="interview.html",
+        context={
+            "lang": norm_lang,
+            "applicant_name": app_name,
+            "session": SESSION,
+            "step_index": safe_step,
+            "total_steps": total_steps,
+            "current_step": current_step,
+            "tts_text": tts_text
+        }
+    )
+
+
 @app.get("/wizard/{step_num}", response_class=HTMLResponse)
 async def wizard_step(request: Request, step_num: int, lang: str = Query("en")):
     norm_lang = lang if lang in I18N else "en"
@@ -150,21 +196,6 @@ async def wizard_step(request: Request, step_num: int, lang: str = Query("en")):
             "twin": SESSION.get("digital_twin_data", {}),
             "score": SESSION.get("scoring_res"),
             "readiness": SESSION.get("readiness_res")
-        }
-    )
-
-
-@app.get("/wizard/interview", response_class=HTMLResponse)
-async def wizard_interview(request: Request, lang: str = Query("en")):
-    norm_lang = lang if lang in I18N else "en"
-    app_name = applicant_display_name(SESSION)
-    return templates.TemplateResponse(
-        request=request,
-        name="interview.html",
-        context={
-            "lang": norm_lang,
-            "applicant_name": app_name,
-            "session": SESSION
         }
     )
 
@@ -192,7 +223,115 @@ async def evidence_library(request: Request):
     )
 
 
-# API ENDPOINTS
+# API: TTS ENGINE STREAMING
+@app.get("/api/tts")
+async def api_tts(text: str = Query(""), lang: str = Query("en")):
+    if not text.strip():
+        text = "Welcome to TeraGrant Agent."
+
+    cache_key = hashlib.md5(f"{text}_{lang}".encode("utf-8")).hexdigest()
+    if cache_key in TTS_CACHE:
+        audio_bytes = TTS_CACHE[cache_key]
+    else:
+        audio_bytes = generate_speech_audio(text=text, lang=lang)
+        TTS_CACHE[cache_key] = audio_bytes
+
+    return StreamingResponse(io.BytesIO(audio_bytes), media_type="audio/mpeg")
+
+
+# API: GUIDED INTERVIEW ANSWER & FINISH
+@app.post("/api/interview/answer")
+async def api_interview_answer(
+    step_index: int = Form(0),
+    audio: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None)
+):
+    total_steps = len(INTERVIEW_STEPS)
+    if step_index < 0 or step_index >= total_steps:
+        step_index = 0
+    current_step = INTERVIEW_STEPS[step_index]
+
+    transcript = ""
+    if audio and audio.filename:
+        audio_bytes = await audio.read()
+        if len(audio_bytes) > 0:
+            ext = audio.filename.split(".")[-1] if "." in audio.filename else "webm"
+            res = transcribe_step1(audio_bytes=audio_bytes, ext=ext)
+            transcript = res.get("transcript", "")
+    elif text and text.strip():
+        transcript = text.strip()
+
+    if not transcript:
+        return JSONResponse(status_code=400, content={
+            "status": "error",
+            "message": "Empty answer provided. Please speak or type your answer.",
+            "extraction": None
+        })
+
+    # Extract atomic fact using interview agent
+    extraction = extract_answer(step=current_step, transcript=transcript)
+
+    # Merge into accumulated interview data
+    SESSION["interview_data"] = merge_answer(
+        interview_data=SESSION.get("interview_data", {}),
+        step=current_step,
+        extraction=extraction
+    )
+    if "interview_transcripts" not in SESSION:
+        SESSION["interview_transcripts"] = []
+    SESSION["interview_transcripts"].append(transcript)
+
+    # Update digital twin fields in session
+    dt = SESSION.get("digital_twin_data", {})
+    if extraction.value and extraction.confidence >= 0.5:
+        if current_step.step_id == "S1":
+            dt["company_name"] = str(extraction.value)
+            SESSION["applicant_name"] = str(extraction.value)
+        elif current_step.step_id == "S2":
+            dt["location"] = str(extraction.value)
+        elif current_step.step_id == "S4":
+            if "total_staff" in SESSION["interview_data"]:
+                dt["total_staff"] = SESSION["interview_data"]["total_staff"]
+            if "female_staff" in SESSION["interview_data"]:
+                dt["female_staff"] = SESSION["interview_data"]["female_staff"]
+
+    return JSONResponse(content={
+        "status": "success",
+        "transcript": transcript,
+        "extraction": {
+            "field_id": extraction.field_id,
+            "value": extraction.value,
+            "confidence": extraction.confidence,
+            "notes": extraction.notes
+        },
+        "updated_interview_data": SESSION["interview_data"]
+    })
+
+
+@app.get("/api/interview/reset")
+async def api_interview_reset(lang: str = Query("en")):
+    SESSION["interview_data"] = {}
+    SESSION["interview_transcripts"] = []
+    return RedirectResponse(url=f"/wizard/interview?step=0&lang={lang}")
+
+
+@app.get("/api/interview/finish")
+async def api_interview_finish(lang: str = Query("en")):
+    interview_data = SESSION.get("interview_data", {})
+    transcripts = SESSION.get("interview_transcripts", [])
+    
+    synthesized = synthesize_audio_extraction(interview_data, transcripts)
+    SESSION["audio_data"] = synthesized
+    SESSION["transcript"] = synthesized.transcript
+    SESSION["chips"] = build_fact_chips(synthesized)
+    if synthesized.business_name:
+        SESSION["applicant_name"] = synthesized.business_name
+        SESSION["digital_twin_data"]["company_name"] = synthesized.business_name
+
+    return RedirectResponse(url=f"/wizard/3?lang={lang}")
+
+
+# API: VOICE TRANSCRIBE
 @app.post("/api/transcribe")
 async def api_transcribe(
     audio: Optional[UploadFile] = File(None),

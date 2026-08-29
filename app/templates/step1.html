@@ -35,10 +35,10 @@
     </div>
   </div>
 
-  <!-- Recorder Block (96px circle + 24 waveform bars) -->
+  <!-- Recorder Block (IDLE: Grey circle + static grey bars | RECORDING: Red pulsing circle + red animated waveform) -->
   <div class="recorder-wrapper">
     <div class="record-circle-96" id="record-circle">
-      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
     </div>
 
     <!-- 24 Waveform Bars -->
@@ -48,7 +48,7 @@
       {% endfor %}
     </div>
 
-    <div class="recorder-caption" id="record-caption">● Tap to start recording</div>
+    <div class="recorder-caption" id="record-caption">Tap to record or speak</div>
 
     <!-- Upload voice note link -->
     <div style="margin-top: 14px;">
@@ -70,10 +70,10 @@
     </div>
   </div>
 
-  <!-- Guided Interview Link -->
+  <!-- Clearly Visible Guided Interview Link Button -->
   <div style="text-align: center; margin-top: 32px;">
-    <a href="/wizard/interview" style="font-size: 13px; color: #059669; font-weight: 600; text-decoration: none;">
-      Need help? Let the AI interview you step by step ↓
+    <a href="/wizard/interview?lang={{ lang }}" class="btn-green-link">
+      🎙 Need help? Let the AI interview you step by step →
     </a>
   </div>
 </div>
