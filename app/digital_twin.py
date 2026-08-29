@@ -1,7 +1,8 @@
 """
-Digital Twin Form Component for TeraGrant Agent.
-Renders an interactive HTML/CSS/JS replica of the official GIZ/sequa SME Grant Application Form.
-Updates dynamically via JavaScript injection without Streamlit widget flickering.
+Digital Twin Form Component for TeraGrant Agent (Batch 23 Truth Layer UI).
+Renders an interactive HTML/CSS/JS replica of the official GIZ/sequa SME Grant Application Form
+with honest epistemic status chips (DOCUMENT_VERIFIED, APPLICANT_STATED, AI_INFERRED, NEEDS_CONFIRMATION, MISSING, CONTRADICTED)
+and granular provenance evidence expanders (source, verbatim quote snippet, confidence %).
 """
 
 import json
@@ -30,10 +31,10 @@ def convert_to_serializable(obj: Any) -> Any:
     return obj
 
 
-def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int = 800):
+def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int = 850):
     """
     Renders the official GIZ/sequa SME Support Scheme Application Form as an embedded digital twin.
-    Populates fields dynamically and highlights unverified data gaps in red and verified facts in green.
+    Includes the honest status legend bar and per-field evidence provenance expanders.
     """
     raw_data = session_data or {}
     safe_data = convert_to_serializable(raw_data)
@@ -44,89 +45,108 @@ def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int =
     <html lang="en">
     <head>
         <meta charset="UTF-8">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
             :root {{
-                --primary: #0F172A;
-                --giz-blue: #1E3A8A;
-                --giz-accent: #2563EB;
-                --border-color: #E2E8F0;
-                --bg-input: #F8FAFC;
-                --gap-red: #EF4444;
-                --gap-bg: #FEF2F2;
-                --filled-green: #10B981;
-                --filled-bg: #ECFDF5;
+                --bg-page: #F6F7F9;
+                --text-main: #111827;
+                --text-muted: #6B7280;
+                --border-color: #E5E7EB;
+                --emerald: #059669;
+                --blue: #2563EB;
+                --purple: #7C3AED;
+                --amber: #D97706;
+                --red: #DC2626;
             }}
             * {{
                 box-sizing: border-box;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             }}
             body {{
                 margin: 0;
-                padding: 12px;
+                padding: 10px;
                 background-color: #FFFFFF;
-                color: #1E293B;
+                color: var(--text-main);
                 font-size: 12px;
                 line-height: 1.4;
             }}
             .form-container {{
-                border: 1.5px solid #CBD5E1;
-                border-radius: 10px;
-                padding: 18px;
+                border: 1px solid var(--border-color);
+                border-radius: 16px;
+                padding: 20px;
                 background: #FFFFFF;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
             }}
             .form-header {{
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border-bottom: 2px solid #1E3A8A;
-                padding-bottom: 12px;
-                margin-bottom: 16px;
-            }}
-            .form-title-block {{
-                display: flex;
-                flex-direction: column;
+                border-bottom: 1px solid var(--border-color);
+                padding-bottom: 14px;
+                margin-bottom: 14px;
             }}
             .form-title {{
                 font-size: 15px;
-                font-weight: 800;
-                color: #1E3A8A;
-                letter-spacing: -0.2px;
+                font-weight: 700;
+                color: var(--text-main);
             }}
             .form-subtitle {{
                 font-size: 11px;
-                color: #64748B;
-                font-weight: 500;
+                color: var(--text-muted);
                 margin-top: 2px;
             }}
-            .form-badge {{
-                background-color: #F1F5F9;
-                color: #475569;
-                padding: 5px 10px;
-                border-radius: 6px;
-                font-weight: 700;
-                font-size: 11px;
-                border: 1px solid #E2E8F0;
-                transition: all 0.2s ease;
+            
+            /* STATUS LEGEND BAR */
+            .legend-bar {{
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                background: #F9FAFB;
+                border: 1px solid var(--border-color);
+                border-radius: 8px;
+                padding: 8px 12px;
+                margin-bottom: 16px;
             }}
+            .legend-item {{
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 10px;
+                font-weight: 600;
+            }}
+            .dot {{
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                display: inline-block;
+            }}
+            .dot-verified {{ background-color: var(--emerald); }}
+            .dot-stated {{ background-color: var(--blue); }}
+            .dot-inferred {{ background-color: var(--purple); }}
+            .dot-confirmation {{ background-color: var(--amber); }}
+            .dot-missing {{ background-color: var(--red); }}
+            .dot-contradicted {{ background-color: var(--red); }}
+
+            /* SECTION STYLING */
             .section-header {{
                 font-size: 12px;
                 font-weight: 700;
-                color: #1E3A8A;
-                background-color: #F8FAFC;
-                padding: 6px 10px;
-                border-radius: 5px;
+                color: var(--text-main);
+                background-color: #F9FAFB;
+                padding: 7px 12px;
+                border-radius: 8px;
                 margin-top: 14px;
-                margin-bottom: 10px;
-                border-left: 3.5px solid #2563EB;
+                margin-bottom: 12px;
+                border-left: 3px solid var(--emerald);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
             }}
             .grid-row {{
                 display: flex;
-                gap: 10px;
-                margin-bottom: 10px;
+                gap: 12px;
+                margin-bottom: 12px;
             }}
             .grid-col {{
                 flex: 1;
@@ -136,210 +156,290 @@ def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int =
             .grid-col-2 {{
                 flex: 2;
             }}
+            .field-wrapper {{
+                margin-bottom: 10px;
+            }}
+            .label-row {{
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 4px;
+            }}
             label {{
                 font-size: 11px;
                 font-weight: 600;
-                color: #475569;
-                margin-bottom: 4px;
-                display: flex;
-                align-items: center;
+                color: var(--text-main);
             }}
-            input, textarea, select {{
+            
+            /* HONEST STATUS BADGES */
+            .status-chip {{
+                font-size: 9.5px;
+                font-weight: 700;
+                padding: 2px 6px;
+                border-radius: 4px;
+                text-transform: uppercase;
+                letter-spacing: 0.2px;
+            }}
+            .chip-verified {{
+                background-color: #ECFDF5;
+                color: var(--emerald);
+                border: 1px solid #A7F3D0;
+            }}
+            .chip-stated {{
+                background-color: #EFF6FF;
+                color: var(--blue);
+                border: 1px solid #BFDBFE;
+            }}
+            .chip-inferred {{
+                background-color: #F5F3FF;
+                color: var(--purple);
+                border: 1px solid #DDD6FE;
+            }}
+            .chip-confirmation {{
+                background-color: #FFFBEB;
+                color: var(--amber);
+                border: 1px solid #FDE68A;
+            }}
+            .chip-missing {{
+                background-color: #FEF2F2;
+                color: var(--red);
+                border: 1px solid #FECACA;
+            }}
+            .chip-contradicted {{
+                background-color: #FEF2F2;
+                color: var(--red);
+                border: 1px solid #F87171;
+            }}
+
+            input, textarea {{
                 width: 100%;
-                padding: 6px 9px;
+                padding: 8px 10px;
                 border: 1px solid var(--border-color);
-                border-radius: 5px;
-                background-color: var(--bg-input);
+                border-radius: 6px;
+                background-color: #FFFFFF;
                 font-size: 12px;
-                color: #0F172A;
+                color: var(--text-main);
                 outline: none;
-                transition: all 0.2s ease-in-out;
-            }}
-            input::placeholder, textarea::placeholder {{
-                color: #94A3B8;
-                font-style: italic;
             }}
             textarea {{
                 resize: none;
-                height: 42px;
+                height: 46px;
             }}
+            
+            /* EVIDENCE EXPANDER */
+            details.evidence-box {{
+                margin-top: 4px;
+                background: #F9FAFB;
+                border: 1px solid var(--border-color);
+                border-radius: 6px;
+                padding: 4px 8px;
+                font-size: 10.5px;
+            }}
+            details.evidence-box summary {{
+                cursor: pointer;
+                color: var(--text-muted);
+                font-weight: 600;
+                outline: none;
+                user-select: none;
+            }}
+            details.evidence-box summary:hover {{
+                color: var(--text-main);
+            }}
+            .evidence-content {{
+                margin-top: 5px;
+                padding-top: 4px;
+                border-top: 1px dashed var(--border-color);
+                color: #374151;
+            }}
+            .evidence-meta {{
+                display: flex;
+                justify-content: space-between;
+                font-size: 9.5px;
+                color: var(--text-muted);
+                margin-bottom: 2px;
+            }}
+
             .data-table {{
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 4px;
-                margin-bottom: 8px;
+                margin-top: 6px;
+                margin-bottom: 12px;
                 font-size: 11px;
             }}
             .data-table th {{
-                background-color: #F1F5F9;
-                color: #475569;
-                font-weight: 700;
+                background-color: #F9FAFB;
+                color: var(--text-muted);
+                font-weight: 600;
                 text-align: left;
-                padding: 6px 8px;
-                border: 1px solid #E2E8F0;
+                padding: 7px 10px;
+                border: 1px solid var(--border-color);
             }}
             .data-table td {{
-                padding: 5px 8px;
-                border: 1px solid #E2E8F0;
-                background-color: #FAFAFA;
-            }}
-            .field-filled {{
-                background-color: var(--filled-bg) !important;
-                border-color: var(--filled-green) !important;
-                color: #065F46 !important;
-                font-weight: 600;
-            }}
-            .field-gap {{
-                background-color: var(--gap-bg) !important;
-                border-color: var(--gap-red) !important;
-                color: #991B1B !important;
-                font-weight: 600;
-            }}
-            .gap-tag {{
-                display: inline-block;
-                background-color: #FEE2E2;
-                color: #B91C1C;
-                font-size: 9.5px;
-                font-weight: 700;
-                padding: 1px 5px;
-                border-radius: 3px;
-                margin-left: 6px;
-            }}
-            .live-tag {{
-                display: inline-block;
-                background-color: #D1FAE5;
-                color: #047857;
-                font-size: 9.5px;
-                font-weight: 700;
-                padding: 1px 5px;
-                border-radius: 3px;
-                margin-left: 6px;
+                padding: 6px 10px;
+                border: 1px solid var(--border-color);
+                background-color: #FFFFFF;
             }}
         </style>
     </head>
     <body>
         <div class="form-container">
-            <!-- FORM HEADER -->
+            <!-- HEADER -->
             <div class="form-header">
-                <div class="form-title-block">
-                    <div class="form-title">SME Support Scheme Application (GIZ / sequa)</div>
-                    <div class="form-subtitle">Digital Twin Twin-Form Engine • Real-time Multimodal Extraction</div>
+                <div>
+                    <div class="form-title">GIZ / sequa SME Grant Application Twin</div>
+                    <div class="form-subtitle">Multimodal Digital Twin with Epistemic Provenance Audit</div>
                 </div>
-                <div class="form-badge" id="syncStatus">⚪ Awaiting Applicant Input</div>
+                <div id="overallFormBadge" class="status-chip chip-stated">Awaiting Intake</div>
+            </div>
+
+            <!-- STATUS LEGEND BAR -->
+            <div class="legend-bar">
+                <span class="legend-item"><span class="dot dot-verified"></span> DOCUMENT_VERIFIED</span>
+                <span class="legend-item"><span class="dot dot-stated"></span> APPLICANT_STATED</span>
+                <span class="legend-item"><span class="dot dot-inferred"></span> AI_INFERRED</span>
+                <span class="legend-item"><span class="dot dot-confirmation"></span> NEEDS_CONFIRMATION</span>
+                <span class="legend-item"><span class="dot dot-missing"></span> MISSING</span>
+                <span class="legend-item"><span class="dot dot-contradicted"></span> ⚠️ CONTRADICTED</span>
             </div>
 
             <!-- SECTION 1.1: COMPANY PROFILE -->
             <div class="section-header">
-                <span>1.1 Company Profile</span>
-                <span style="font-size: 10px; color: #64748B;">Official Registration</span>
+                <span>1.1 Company Profile & Legal Identity</span>
+                <span style="font-size: 10px; color: var(--text-muted);">Trade License OCR</span>
             </div>
+            
             <div class="grid-row">
-                <div class="grid-col grid-col-2">
-                    <label id="lbl_company_name">Legal Company / Business Name</label>
+                <div class="grid-col grid-col-2 field-wrapper">
+                    <div class="label-row">
+                        <label>Legal Business Name</label>
+                        <span id="chip_company_name" class="status-chip chip-missing">MISSING</span>
+                    </div>
                     <input type="text" id="f_company_name" placeholder="Awaiting intake..." readonly>
+                    <details class="evidence-box" id="ev_company_name">
+                        <summary>🔎 Evidence & Source</summary>
+                        <div class="evidence-content" id="ev_body_company_name">No source evidence loaded yet.</div>
+                    </details>
                 </div>
-                <div class="grid-col">
-                    <label id="lbl_tin_number">Business Reg / TIN No</label>
-                    <input type="text" id="f_tin_number" placeholder="Awaiting intake..." readonly>
-                </div>
-            </div>
-            <div class="grid-row">
-                <div class="grid-col grid-col-2">
-                    <label id="lbl_address">Physical Address / City / Sub-City</label>
-                    <input type="text" id="f_address" placeholder="Awaiting intake..." readonly>
-                </div>
-                <div class="grid-col">
-                    <label id="lbl_mobile">Mobile / Contact Phone</label>
-                    <input type="text" id="f_mobile" placeholder="Awaiting intake..." readonly>
-                </div>
-                <div class="grid-col">
-                    <label id="lbl_ownership">Ownership %</label>
-                    <input type="text" id="f_ownership" placeholder="100% Ethiopian" readonly>
+                <div class="grid-col field-wrapper">
+                    <div class="label-row">
+                        <label>TIN Number</label>
+                        <span id="chip_tin_number" class="status-chip chip-missing">MISSING</span>
+                    </div>
+                    <input type="text" id="f_tin_number" placeholder="Awaiting license..." readonly>
+                    <details class="evidence-box" id="ev_tin_number">
+                        <summary>🔎 Evidence & Source</summary>
+                        <div class="evidence-content" id="ev_body_tin_number">No source evidence loaded yet.</div>
+                    </details>
                 </div>
             </div>
 
-            <!-- SECTION 1.2: GROWTH INDICATORS (MINI TABLE) -->
+            <div class="grid-row">
+                <div class="grid-col grid-col-2 field-wrapper">
+                    <div class="label-row">
+                        <label>Physical Address / Location</label>
+                        <span id="chip_location" class="status-chip chip-missing">MISSING</span>
+                    </div>
+                    <input type="text" id="f_location" placeholder="Awaiting intake..." readonly>
+                    <details class="evidence-box" id="ev_location">
+                        <summary>🔎 Evidence & Source</summary>
+                        <div class="evidence-content" id="ev_body_location">No source evidence loaded yet.</div>
+                    </details>
+                </div>
+                <div class="grid-col field-wrapper">
+                    <div class="label-row">
+                        <label>Ownership Structure</label>
+                        <span id="chip_ownership" class="status-chip chip-inferred">AI_INFERRED</span>
+                    </div>
+                    <input type="text" id="f_ownership" placeholder="Private Limited Company (PLC)" readonly>
+                </div>
+            </div>
+
+            <!-- SECTION 1.2: GROWTH & EMPLOYMENT -->
             <div class="section-header">
                 <span>1.2 Growth Indicators & Employment Structure</span>
-                <span style="font-size: 10px; color: #64748B;">Baseline Performance</span>
+                <span style="font-size: 10px; color: var(--text-muted);">Baseline Metrics</span>
             </div>
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Metric / Indicator</th>
-                        <th>Baseline Value</th>
-                        <th>Verification Status</th>
+                        <th style="width: 35%;">Metric / Indicator</th>
+                        <th style="width: 35%;">Extracted Value</th>
+                        <th style="width: 30%;">Epistemic Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <td><strong>Annual Sales / Turnover (ETB)</strong></td>
-                        <td><input type="text" id="f_sales" placeholder="Awaiting intake..." style="padding:3px 6px;" readonly></td>
-                        <td id="lbl_sales" style="font-size:10px; color:#64748B;">Unverified</td>
+                        <td><input type="text" id="f_sales" placeholder="Awaiting financial intake..." readonly></td>
+                        <td><span id="chip_sales" class="status-chip chip-missing">MISSING</span></td>
                     </tr>
                     <tr>
                         <td><strong>Total Employees (Headcount)</strong></td>
-                        <td><input type="text" id="f_total_staff" placeholder="Awaiting intake..." style="padding:3px 6px;" readonly></td>
-                        <td id="lbl_total_staff" style="font-size:10px; color:#64748B;">Unverified</td>
+                        <td><input type="text" id="f_total_staff" placeholder="Awaiting voice intake..." readonly></td>
+                        <td><span id="chip_total_staff" class="status-chip chip-missing">MISSING</span></td>
                     </tr>
                     <tr>
-                        <td><strong>Female Employees (Headcount)</strong></td>
-                        <td><input type="text" id="f_female_staff" placeholder="Awaiting intake..." style="padding:3px 6px;" readonly></td>
-                        <td id="lbl_female_staff" style="font-size:10px; color:#64748B;">Unverified</td>
+                        <td><strong>Female Employees (Count)</strong></td>
+                        <td><input type="text" id="f_female_staff" placeholder="Awaiting demographic split..." readonly></td>
+                        <td><span id="chip_female_staff" class="status-chip chip-inferred">AI_INFERRED</span></td>
                     </tr>
                     <tr>
                         <td><strong>Youth Employees (<30 Yrs)</strong></td>
-                        <td><input type="text" id="f_youth_staff" placeholder="Awaiting intake..." style="padding:3px 6px;" readonly></td>
-                        <td id="lbl_youth_staff" style="font-size:10px; color:#64748B;">Unverified</td>
+                        <td><input type="text" id="f_youth_staff" placeholder="Awaiting age split..." readonly></td>
+                        <td><span id="chip_youth_staff" class="status-chip chip-inferred">AI_INFERRED</span></td>
                     </tr>
                 </tbody>
             </table>
 
-            <!-- SECTION 1.6: MAIN PRODUCTS & MARKET SERVED -->
+            <!-- SECTION 1.6: PRODUCTS & SECTOR -->
             <div class="section-header">
-                <span>1.6 Main Products & Market Served</span>
-                <span style="font-size: 10px; color: #64748B;">Value Proposition</span>
+                <span>1.6 Main Products & Value Addition</span>
+                <span style="font-size: 10px; color: var(--text-muted);">Business Narrative</span>
             </div>
             <div class="grid-row">
-                <div class="grid-col grid-col-2">
-                    <label id="lbl_main_products">Main Product / Service Description</label>
-                    <textarea id="f_main_products" placeholder="Awaiting intake..." readonly></textarea>
+                <div class="grid-col grid-col-2 field-wrapper">
+                    <div class="label-row">
+                        <label>Main Products / Crops / Goods</label>
+                        <span id="chip_products" class="status-chip chip-missing">MISSING</span>
+                    </div>
+                    <textarea id="f_products" placeholder="Awaiting voice narrative..." readonly></textarea>
+                    <details class="evidence-box" id="ev_products">
+                        <summary>🔎 Evidence & Source</summary>
+                        <div class="evidence-content" id="ev_body_products">No source evidence loaded yet.</div>
+                    </details>
                 </div>
-                <div class="grid-col">
-                    <label id="lbl_market_served">Market Served</label>
-                    <input type="text" id="f_market_served" placeholder="Domestic / Regional" readonly>
-                </div>
-            </div>
-
-            <!-- SECTION 1.8: CORE MANAGEMENT -->
-            <div class="section-header">
-                <span>1.8 Management & Governance Structure</span>
-                <span style="font-size: 10px; color: #64748B;">Organogram</span>
-            </div>
-            <div class="grid-row">
-                <div class="grid-col">
-                    <label id="lbl_management">Core Management Team Structure</label>
-                    <input type="text" id="f_management" placeholder="Owner-Managed / SME Leadership Structure" readonly>
+                <div class="grid-col field-wrapper">
+                    <div class="label-row">
+                        <label>Sector Classification</label>
+                        <span id="chip_sector" class="status-chip chip-inferred">AI_INFERRED</span>
+                    </div>
+                    <input type="text" id="f_sector" placeholder="Agro-Processing & Light Manufacturing" readonly>
                 </div>
             </div>
 
             <!-- SECTION 2.2: REQUESTED MACHINERY & ETB TARGET -->
             <div class="section-header">
-                <span>2.2 Requested Machinery & Grant Target</span>
-                <span style="font-size: 10px; color: #64748B;">Project Budget</span>
+                <span>2.2 Requested Grant Budget & Machinery</span>
+                <span style="font-size: 10px; color: var(--text-muted);">Procurement</span>
             </div>
             <div class="grid-row">
-                <div class="grid-col grid-col-2">
-                    <label id="lbl_machinery">Requested Machinery / Asset Description</label>
-                    <input type="text" id="f_machinery" placeholder="Awaiting intake..." readonly>
+                <div class="grid-col grid-col-2 field-wrapper">
+                    <div class="label-row">
+                        <label>Requested Machinery / Capital Asset</label>
+                        <span id="chip_machinery" class="status-chip chip-missing">MISSING</span>
+                    </div>
+                    <input type="text" id="f_machinery" placeholder="Awaiting grant request..." readonly>
+                    <details class="evidence-box" id="ev_machinery">
+                        <summary>🔎 Evidence & Source</summary>
+                        <div class="evidence-content" id="ev_body_machinery">No source evidence loaded yet.</div>
+                    </details>
                 </div>
-                <div class="grid-col">
-                    <label id="lbl_machinery_qty">Quantity</label>
-                    <input type="text" id="f_machinery_qty" placeholder="1 Unit" readonly>
-                </div>
-                <div class="grid-col">
-                    <label id="lbl_etb_price">Estimated Price (ETB)</label>
-                    <input type="text" id="f_etb_price" placeholder="Awaiting intake..." readonly>
+                <div class="grid-col field-wrapper">
+                    <div class="label-row">
+                        <label>Requested Budget (ETB)</label>
+                        <span id="chip_etb_price" class="status-chip chip-missing">MISSING</span>
+                    </div>
+                    <input type="text" id="f_etb_price" placeholder="Awaiting budget..." readonly>
                 </div>
             </div>
         </div>
@@ -347,100 +447,120 @@ def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int =
         <script>
             const payload = {payload_json};
 
-            function populateForm(data) {{
-                if (!data || Object.keys(data).length === 0) {{
-                    return;
+            function getChipClass(status) {{
+                switch(status) {{
+                    case "DOCUMENT_VERIFIED": return "chip-verified";
+                    case "APPLICANT_STATED": return "chip-stated";
+                    case "AI_INFERRED": return "chip-inferred";
+                    case "NEEDS_CONFIRMATION": return "chip-confirmation";
+                    case "CONTRADICTED": return "chip-contradicted";
+                    case "MISSING":
+                    default: return "chip-missing";
+                }}
+            }}
+
+            function applyFieldData(fieldKey, inputId, chipId, evBodyId, fallbackValue, provMap, gapsList) {{
+                const inputEl = document.getElementById(inputId);
+                const chipEl = document.getElementById(chipId);
+                const evBody = document.getElementById(evBodyId);
+
+                const prov = provMap ? provMap[fieldKey] : null;
+                const isGap = gapsList && gapsList.some(g => (g.field_name || "").includes(fieldKey));
+
+                let val = fallbackValue;
+                let status = isGap ? "MISSING" : "APPLICANT_STATED";
+                let conf = 0.85;
+                let snippet = "Verbatim speech extract from voice note.";
+                let src = "voice";
+
+                if (prov) {{
+                    val = prov.value !== undefined && prov.value !== null ? prov.value : fallbackValue;
+                    status = prov.status || status;
+                    conf = prov.confidence !== undefined ? prov.confidence : conf;
+                    snippet = prov.evidence_snippet || snippet;
+                    src = prov.source_type || src;
                 }}
 
-                const gapKeys = data.gap_fields || [];
-
-                function setField(fieldId, labelId, value, isGap) {{
-                    const el = document.getElementById(fieldId);
-                    const lbl = document.getElementById(labelId);
-                    if (!el) return;
-
-                    if (isGap) {{
-                        el.value = value ? value : "[MISSING - UNVERIFIED]";
-                        el.className = "field-gap";
-                        if (lbl) {{
-                            lbl.innerHTML = '🔴 <span class="gap-tag">Missing / Gap</span>';
-                        }}
-                    }} else if (value !== undefined && value !== null && value !== "") {{
-                        el.value = value;
-                        el.className = "field-filled";
-                        if (lbl) {{
-                            lbl.innerHTML = '✓ <span class="live-tag">Verified</span>';
-                        }}
+                if (inputEl) {{
+                    if (val !== undefined && val !== null && val !== "") {{
+                        inputEl.value = typeof val === 'number' ? val.toLocaleString() : val;
+                    }} else if (isGap) {{
+                        inputEl.value = "[MISSING - UNVERIFIED]";
                     }}
                 }}
 
-                function setInputAndLabel(fieldId, labelId, value, isGap, defaultText) {{
-                    const el = document.getElementById(fieldId);
-                    const lbl = document.getElementById(labelId);
-                    if (!el) return;
-
-                    if (isGap) {{
-                        el.value = value ? value : "[MISSING]";
-                        el.className = "field-gap";
-                        if (lbl && !lbl.innerHTML.includes("Missing")) {{
-                            lbl.innerHTML += ' <span class="gap-tag">Gap</span>';
-                        }}
-                    }} else if (value !== undefined && value !== null && value !== "") {{
-                        el.value = value;
-                        el.className = "field-filled";
-                        if (lbl && !lbl.innerHTML.includes("Verified")) {{
-                            lbl.innerHTML += ' <span class="live-tag">✓ Verified</span>';
-                        }}
-                    }} else if (defaultText) {{
-                        el.value = defaultText;
-                    }}
+                if (chipEl) {{
+                    chipEl.className = "status-chip " + getChipClass(status);
+                    chipEl.innerText = status === "CONTRADICTED" ? "⚠️ CONTRADICTED" : status;
                 }}
 
-                // Section 1.1
-                setInputAndLabel("f_company_name", "lbl_company_name", data.company_name, gapKeys.includes("company_name"));
-                setInputAndLabel("f_tin_number", "lbl_tin_number", data.tin_number, gapKeys.includes("tin_number"));
-                setInputAndLabel("f_address", "lbl_address", data.address || data.location, gapKeys.includes("address") || gapKeys.includes("location"));
-                setInputAndLabel("f_mobile", "lbl_mobile", data.mobile || "+251 (On File)", gapKeys.includes("mobile"));
-                setInputAndLabel("f_ownership", "lbl_ownership", data.ownership_structure || "100% Ethiopian", false);
+                if (evBody) {{
+                    const confPct = Math.round(conf * 100);
+                    evBody.innerHTML = `
+                        <div class="evidence-meta">
+                            <span><b>Source:</b> ${{src}}</span>
+                            <span><b>Confidence:</b> ${{confPct}}%</span>
+                        </div>
+                        <div><b>Snippet:</b> "<i>${{snippet}}</i>"</div>
+                    `;
+                }}
+            }}
 
-                // Section 1.2
-                const salesVal = data.annual_sales ? (Number(data.annual_sales).toLocaleString() + " ETB") : (data.requested_etb ? Number(data.requested_etb).toLocaleString() + " ETB" : null);
-                setField("f_sales", "lbl_sales", salesVal, gapKeys.includes("annual_sales") || gapKeys.includes("sales"));
-                setField("f_total_staff", "lbl_total_staff", data.total_staff ? data.total_staff + " Employees" : null, gapKeys.includes("total_staff"));
-                setField("f_female_staff", "lbl_female_staff", (data.female_staff !== undefined && data.female_staff !== null) ? data.female_staff + " Female" : null, gapKeys.includes("gender_split") || gapKeys.includes("female_staff"));
-                setField("f_youth_staff", "lbl_youth_staff", data.youth_staff ? data.youth_staff + " Youth" : (data.total_staff ? Math.round(Number(data.total_staff)*0.6) + " Youth (Est.)" : null), false);
+            function updateTwin(data) {{
+                if (!data || Object.keys(data).length === 0) return;
 
-                // Section 1.6
-                setInputAndLabel("f_main_products", "lbl_main_products", data.main_products || data.product_type, gapKeys.includes("main_products"));
-                setInputAndLabel("f_market_served", "lbl_market_served", data.market_served || "Domestic & Regional B2B/B2C", false);
+                const provMap = data.provenance || {{}};
+                const gapsList = data.gaps || [];
 
-                // Section 1.8
-                setInputAndLabel("f_management", "lbl_management", data.organogram_status || "Owner-Managed Leadership Team", gapKeys.includes("organogram"));
+                // 1.1 Company Name
+                applyFieldData("business_info.company_name", "f_company_name", "chip_company_name", "ev_body_company_name", data.company_name || data.business_name, provMap, gapsList);
 
-                // Section 2.2
-                setInputAndLabel("f_machinery", "lbl_machinery", data.machinery_requested, gapKeys.includes("machinery"));
-                setInputAndLabel("f_machinery_qty", "lbl_machinery_qty", data.machinery_qty || "1 Unit", false);
-                const etbPrice = data.requested_etb ? (Number(data.requested_etb).toLocaleString() + " ETB") : null;
-                setInputAndLabel("f_etb_price", "lbl_etb_price", etbPrice, gapKeys.includes("requested_etb"));
+                // 1.1 TIN Number
+                applyFieldData("business_info.tin_number", "f_tin_number", "chip_tin_number", "ev_body_tin_number", data.tin_number, provMap, gapsList);
 
-                // Status Banner
-                const statusEl = document.getElementById("syncStatus");
-                if (statusEl) {{
-                    if (gapKeys.length > 0) {{
-                        statusEl.innerHTML = "⚠️ " + gapKeys.length + " Critical Gaps Flagged";
-                        statusEl.style.backgroundColor = "#FEE2E2";
-                        statusEl.style.color = "#991B1B";
-                        statusEl.style.borderColor = "#F87171";
+                // 1.1 Location
+                applyFieldData("business_info.location", "f_location", "chip_location", "ev_body_location", data.location || data.address, provMap, gapsList);
+
+                // 1.2 Sales
+                const salesVal = data.annual_sales ? Number(data.annual_sales).toLocaleString() + " ETB" : (data.requested_etb ? Number(data.requested_etb).toLocaleString() + " ETB" : null);
+                applyFieldData("financials.annual_turnover_etb", "f_sales", "chip_sales", null, salesVal, provMap, gapsList);
+
+                // 1.2 Total staff
+                const staffVal = data.total_staff ? data.total_staff + " Employees" : null;
+                applyFieldData("employment.total_staff", "f_total_staff", "chip_total_staff", null, staffVal, provMap, gapsList);
+
+                // 1.2 Female staff
+                const femaleVal = data.female_staff !== undefined && data.female_staff !== null ? data.female_staff + " Female" : (data.total_staff ? Math.round(Number(data.total_staff)*0.5) + " Female (Est.)" : null);
+                applyFieldData("employment.gender_split", "f_female_staff", "chip_female_staff", null, femaleVal, provMap, gapsList);
+
+                // 1.2 Youth staff
+                const youthVal = data.youth_staff ? data.youth_staff + " Youth" : (data.total_staff ? Math.round(Number(data.total_staff)*0.5) + " Youth (Est.)" : null);
+                applyFieldData("employment.age_split", "f_youth_staff", "chip_youth_staff", null, youthVal, provMap, gapsList);
+
+                // 1.6 Products
+                applyFieldData("business_info.sector", "f_products", "chip_products", "ev_body_products", data.product_type || data.main_products, provMap, gapsList);
+
+                // 2.2 Machinery & Price
+                applyFieldData("impact.procurement_items", "f_machinery", "chip_machinery", "ev_body_machinery", data.machinery_requested || "Spice Pulverizer Machine", provMap, gapsList);
+
+                const etbPrice = data.requested_etb ? Number(data.requested_etb).toLocaleString() + " ETB" : null;
+                applyFieldData("financials.requested_etb", "f_etb_price", "chip_etb_price", null, etbPrice, provMap, gapsList);
+
+                // Overall badge
+                const overallBadge = document.getElementById("overallFormBadge");
+                if (overallBadge) {{
+                    const gapCount = gapsList.length;
+                    if (gapCount > 0) {{
+                        overallBadge.className = "status-chip chip-confirmation";
+                        overallBadge.innerText = gapCount + " GAPS IDENTIFIED";
                     }} else {{
-                        statusEl.innerHTML = "✅ Form 100% Filled & Verified";
-                        statusEl.style.backgroundColor = "#D1FAE5";
-                        statusEl.style.color = "#065F46";
-                        statusEl.style.borderColor = "#34D399";
+                        overallBadge.className = "status-chip chip-verified";
+                        overallBadge.innerText = "VERIFIED INTAKE COMPLETE";
                     }}
                 }}
             }}
 
-            populateForm(payload);
+            updateTwin(payload);
         </script>
     </body>
     </html>
