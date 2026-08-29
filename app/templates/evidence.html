@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="topbar-white">
+  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+    <a href="/reviewer" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Reviewer</a>
+    <span style="color: #E5E7EB;">|</span>
+    <span>Evidence Library & Multimodal Provenance</span>
+  </div>
+  <div>
+    <a href="/" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none;">Applicant View ›</a>
+  </div>
+</div>
+
+<div class="container-wizard" style="max-width: 900px;">
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Multimodal Evidence Library</h2>
+    <p style="font-size: 14px; color: #6B7280; margin: 0;">Immutable epistemic proof chain corroborating all applicant claims against source files.</p>
+  </div>
+
+  <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+      <thead>
+        <tr style="border-bottom: 1px solid #E5E7EB; text-align: left; color: #6B7280; font-size: 11px;">
+          <th style="padding: 10px 0;">EVIDENCE ASSET</th>
+          <th style="padding: 10px 0;">TYPE</th>
+          <th style="padding: 10px 0;">STATUS</th>
+          <th style="padding: 10px 0;">EXTRACTED FACTS</th>
+          <th style="padding: 10px 0; text-align: right;">VERIFICATION</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #F3F4F6;">
+          <td style="padding: 12px 0; font-weight: 600;">Trade License Scan</td>
+          <td style="padding: 12px 0; color: #6B7280;">Document (JPEG)</td>
+          <td style="padding: 12px 0;"><span class="chip chip-verified">Document Verified</span></td>
+          <td style="padding: 12px 0;">Business Name, TIN, Registration Year</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">Verified (98%)</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #F3F4F6;">
+          <td style="padding: 12px 0; font-weight: 600;">Intake Audio Recording</td>
+          <td style="padding: 12px 0; color: #6B7280;">Audio (WebM/MP3)</td>
+          <td style="padding: 12px 0;"><span class="chip chip-stated">Applicant Stated</span></td>
+          <td style="padding: 12px 0;">Location, Staff, Revenue, Machinery Need</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">Transcribed (92%)</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0; font-weight: 600;">Workshop Facility Photo</td>
+          <td style="padding: 12px 0; color: #6B7280;">Image (JPEG)</td>
+          <td style="padding: 12px 0;"><span class="chip chip-inferred">AI Inferred</span></td>
+          <td style="padding: 12px 0;">Cleanliness, Workstations, Machinery State</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #7C3AED;">Inspected (88%)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

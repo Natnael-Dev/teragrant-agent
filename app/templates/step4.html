@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="topbar-white">
+  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+    <a href="/wizard/3" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back</a>
+    <span style="color: #E5E7EB;">|</span>
+    <span>{{ applicant_name }}</span>
+  </div>
+  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">Step 4 of 6</div>
+</div>
+
+<div class="container-wizard">
+  <!-- Stepper Row -->
+  <div class="stepper-bar">
+    <span class="step-node completed">✓ Tell your story</span>
+    <span class="step-node completed">✓ Upload evidence</span>
+    <span class="step-node completed">✓ Review application</span>
+    <span class="step-node active">● Gaps & contradictions</span>
+    <span class="step-node">○ Declarations</span>
+    <span class="step-node">○ Readiness</span>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Identified Gaps & Forensic Contradictions</h2>
+    <p style="font-size: 14px; color: #6B7280; margin: 0;">Cross-evidence audit corroborating voice claims against paper documents and physical assets.</p>
+  </div>
+
+  <!-- Gap Cards -->
+  <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px;">
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-weight: 700; font-size: 14px; color: #111827;">financials.sales_history_year_2</span>
+        <span class="chip chip-missing">Missing</span>
+      </div>
+      <p style="font-size: 12px; color: #6B7280; margin: 0 0 10px 0;">Annual revenue for 2023 was not stated in the voice note.</p>
+      <button class="btn btn-secondary" style="height: 36px; font-size: 12px;" onclick="alert('Voice answering prompt triggered.');">
+        🎙️ Answer this with voice
+      </button>
+    </div>
+
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-left: 4px solid #DC2626; border-radius: 12px; padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-weight: 700; font-size: 14px; color: #111827;">⚠️ Cross-Evidence Headcount Discrepancy</span>
+        <span class="chip chip-contradicted">⚠ Contradicted</span>
+      </div>
+      <p style="font-size: 12px; color: #6B7280; margin: 0 0 10px 0;">Voice note claimed 8 staff members, but workshop facility photo corroborates 5 active workstations.</p>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" style="height: 36px; font-size: 12px;" onclick="alert('Discrepancy resolution dialogue opened.');">
+          📄 Upload Payroll Evidence to Resolve
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fixed Bottom Bar -->
+<div class="fixed-bottom-bar">
+  <a href="/wizard/3" style="font-size: 13px; font-weight: 600; color: #6B7280;">‹ Back to Step 3</a>
+  <a href="/wizard/5" class="btn btn-primary">
+    Proceed to Declarations ›
+  </a>
+</div>
+{% endblock %}

@@ -1,0 +1,431 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #F1F2F4;
+  color: #111827;
+  font: 15px 'Inter', 'Noto Sans Ethiopic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+}
+
+.topbar-white {
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E7EB;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 56px;
+}
+
+.container {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 72px 20px;
+}
+
+.container-wizard {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 32px 20px 100px 20px;
+}
+
+.seg {
+  display: inline-flex;
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.seg a, .seg button {
+  padding: 7px 16px;
+  font-size: 12px;
+  color: #6B7280;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.seg a.active, .seg button.active {
+  background: #FFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  font-weight: 600;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+
+h1.hero {
+  font-size: 40px;
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.15;
+  margin: 28px 0 12px;
+  letter-spacing: -0.8px;
+}
+
+p.sub {
+  font-size: 15px;
+  color: #6B7280;
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto 44px;
+  line-height: 1.45;
+}
+
+.cards {
+  display: flex;
+  gap: 16px;
+}
+
+.card {
+  flex: 1;
+  background: #FBFBFC;
+  border: 1px solid #ECEEF1;
+  border-radius: 12px;
+  padding: 18px;
+  text-align: left;
+}
+
+.card .icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.card .num {
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.card h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  margin: 2px 0 8px;
+}
+
+.card p {
+  font-size: 12px;
+  color: #6B7280;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.cta {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 28px 0 56px;
+}
+
+.btn {
+  height: 46px;
+  padding: 0 22px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.btn-primary {
+  background: #059669;
+  color: #FFF !important;
+}
+
+.btn-primary:hover {
+  background: #047857;
+}
+
+.btn-primary:disabled {
+  background: #E5E7EB;
+  color: #9CA3AF !important;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #FFF;
+  border-color: #E5E7EB;
+  color: #111827 !important;
+}
+
+.btn-secondary:hover {
+  background: #F9FAFB;
+}
+
+.key {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.key h4 {
+  font-size: 10px;
+  letter-spacing: .8px;
+  color: #6B7280;
+  text-align: center;
+  margin-bottom: 14px;
+  text-transform: uppercase;
+}
+
+.key-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 24px;
+  font-size: 11px;
+  color: #6B7280;
+}
+
+.chip {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+}
+
+.chip-verified     { background: #ECFDF5; color: #059669; border-color: #A7F3D0; }
+.chip-stated       { background: #EFF6FF; color: #2563EB; border-color: #BFDBFE; }
+.chip-inferred     { background: #F5F3FF; color: #7C3AED; border-color: #DDD6FE; }
+.chip-confirmation { background: #FFFBEB; color: #D97706; border-color: #FDE68A; }
+.chip-missing      { background: #FEF2F2; color: #DC2626; border-color: #FECACA; }
+.chip-contradicted { background: #FEF2F2; color: #DC2626; border-color: #F87171; }
+
+/* STEPPER ROW */
+.stepper-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #E5E7EB;
+  padding-bottom: 14px;
+  margin-bottom: 32px;
+}
+
+.step-node {
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.step-node.active {
+  color: #059669;
+  font-weight: 700;
+  border-bottom: 2px solid #059669;
+  padding-bottom: 6px;
+}
+
+.step-node.completed {
+  color: #059669;
+  font-weight: 600;
+}
+
+/* STEP 1 RECORDER & WAVEFORM */
+.recorder-wrapper {
+  text-align: center;
+  margin: 28px auto 16px auto;
+  max-width: 480px;
+}
+
+.record-circle-96 {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #DC2626;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  margin: 0 auto 16px auto;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.record-circle-96.pulsing {
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+  animation: pulse-ring 1.8s infinite;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+  70% { transform: scale(1.04); box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.wave-bars {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  height: 24px;
+  margin-bottom: 10px;
+}
+
+.wave-bar {
+  width: 3px;
+  background: #DC2626;
+  border-radius: 2px;
+  height: 6px;
+  transition: height 0.1s ease;
+}
+
+.wave-bars.active .wave-bar {
+  animation: wave 1.2s ease-in-out infinite alternate;
+}
+
+.wave-bars.active .wave-bar:nth-child(2n) { animation-delay: 0.15s; }
+.wave-bars.active .wave-bar:nth-child(3n) { animation-delay: 0.3s; }
+.wave-bars.active .wave-bar:nth-child(4n) { animation-delay: 0.45s; }
+
+@keyframes wave {
+  0% { transform: scaleY(0.3); }
+  100% { transform: scaleY(1.0); }
+}
+
+.recorder-caption {
+  font-size: 12px;
+  font-weight: 700;
+  color: #DC2626;
+  margin-bottom: 12px;
+}
+
+/* WHATSAPP BUBBLE */
+.whatsapp-bubble {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-left: 4px solid #059669;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px auto;
+  max-width: 580px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  text-align: left;
+}
+
+.whatsapp-bubble-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.whatsapp-transcript {
+  font-size: 13px;
+  color: #111827;
+  line-height: 1.5;
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.fact-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fact-chip-pill {
+  background: #F3F4F6;
+  border: 1px solid #E5E7EB;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #374151;
+  font-weight: 600;
+}
+
+/* FIXED BOTTOM BAR */
+.fixed-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #FFFFFF;
+  border-top: 1px solid #E5E7EB;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+}
+
+.black-pill {
+  background: #111827;
+  color: #FFFFFF;
+  border-radius: 24px;
+  padding: 8px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* UPLOAD CARDS */
+.upload-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.upload-dropzone {
+  background: #FFFFFF;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropzone-box {
+  border: 1px dashed #D1D5DB;
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  background: #FAFAFA;
+  margin-top: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dropzone-box:hover {
+  border-color: #059669;
+  background: #F0FDF4;
+}

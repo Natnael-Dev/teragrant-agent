@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="topbar-white">
+  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+    <a href="/" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Home</a>
+    <span style="color: #E5E7EB;">|</span>
+    <span>Reviewer Batch Evaluation & Portfolio Defense</span>
+  </div>
+  <div>
+    <a href="/evidence" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none;">Evidence Library ›</a>
+  </div>
+</div>
+
+<div class="container-wizard" style="max-width: 960px;">
+  <div style="margin-bottom: 24px;">
+    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Portfolio Evaluation & Committee Defense</h2>
+    <p style="font-size: 14px; color: #6B7280; margin: 0;">Deterministic ranking across 12 SME applicant proposals with verifiable evidence justifications.</p>
+  </div>
+
+  <!-- 6 KPI Cards -->
+  <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px;">
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Total Batch</div>
+      <div style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 4px;">{{ kpis.total_applicants }}</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #059669; font-weight: 700; text-transform: uppercase;">Eligible</div>
+      <div style="font-size: 22px; font-weight: 800; color: #059669; margin-top: 4px;">{{ kpis.eligible_count }}</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #DC2626; font-weight: 700; text-transform: uppercase;">Ineligible</div>
+      <div style="font-size: 22px; font-weight: 800; color: #DC2626; margin-top: 4px;">{{ kpis.ineligible_count }}</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #D97706; font-weight: 700; text-transform: uppercase;">Review Needed</div>
+      <div style="font-size: 22px; font-weight: 800; color: #D97706; margin-top: 4px;">{{ kpis.needs_review_count }}</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #2563EB; font-weight: 700; text-transform: uppercase;">Average Score</div>
+      <div style="font-size: 22px; font-weight: 800; color: #2563EB; margin-top: 4px;">{{ kpis.avg_score }}</div>
+    </div>
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
+      <div style="font-size: 10px; color: #DC2626; font-weight: 700; text-transform: uppercase;">Contradictions</div>
+      <div style="font-size: 22px; font-weight: 800; color: #DC2626; margin-top: 4px;">{{ kpis.total_contradictions }}</div>
+    </div>
+  </div>
+
+  <!-- Ranked Shortlist List -->
+  <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 40px;">
+    {% if shortlist and shortlist.companies %}
+    {% for comp in shortlist.companies %}
+    <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <span style="font-size: 16px; font-weight: 700; color: #111827;">Rank #{{ comp.rank }}: {{ comp.business_name }}</span>
+        <span style="font-size: 16px; font-weight: 800; color: #059669;">{{ comp.total_score }} / 100 pts</span>
+      </div>
+      <div style="font-size: 12px; color: #6B7280; margin-bottom: 10px;">
+        Track: <b>{{ comp.grid_variant.value }}</b> • Status: <span class="chip chip-verified">Shortlisted</span>
+      </div>
+      <details style="font-size: 13px; color: #374151; cursor: pointer; background: #F9FAFB; padding: 12px; border-radius: 8px;">
+        <summary style="font-weight: 600; color: #059669;">🛡️ Why this rank? — Executive Defense & Audit Trail</summary>
+        <p style="margin: 8px 0 6px 0;"><strong>Executive Justification:</strong><br>{{ comp.justification }}</p>
+        {% if comp.site_visit_questions %}
+        <div style="margin-top: 8px;">
+          <strong>Traceable Site-Visit Due Diligence Questions:</strong>
+          <ul style="margin: 4px 0 0 0; padding-left: 20px;">
+            {% for q in comp.site_visit_questions %}
+            <li>{{ q }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </details>
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

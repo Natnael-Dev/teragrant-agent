@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="topbar-white">
+  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+    <a href="/wizard/1" style="color: #6B7280; text-decoration: none; margin-right: 4px;">‹ Back to Step 1</a>
+    <span style="color: #E5E7EB;">|</span>
+    <span>AI Guided Voice Interview</span>
+  </div>
+  <div style="font-size: 12px; font-weight: 600; color: #059669;">Trilingual Audio Assistant</div>
+</div>
+
+<div class="container-wizard" style="max-width: 680px;">
+  <div style="text-align: center; margin-bottom: 28px;">
+    <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Interactive 12-Step Oral Intake</h2>
+    <p style="font-size: 14px; color: #6B7280; margin: 0;">Listen to the question, record your oral answer, and let the auditor populate the digital twin.</p>
+  </div>
+
+  <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px; text-align: center;">
+    <div style="font-size: 12px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 8px;">
+      Question 1 of 12: Business Identity & Overview
+    </div>
+    <p style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 16px;">
+      "What is the official registered name of your business and where is your primary workshop located?"
+    </p>
+
+    <div style="margin-bottom: 24px;">
+      <audio controls style="width: 100%; max-width: 380px;">
+        <source src="" type="audio/mpeg">
+        Your browser does not support audio playback.
+      </audio>
+    </div>
+
+    <!-- Recorder -->
+    <div class="record-circle-96" id="record-circle" style="width: 80px; height: 80px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    </div>
+    <div style="font-size: 12px; font-weight: 700; color: #DC2626; margin-top: 8px;">Tap to answer question 1</div>
+  </div>
+
+  <div style="text-align: center; margin-top: 24px;">
+    <a href="/wizard/2" class="btn btn-secondary">
+      Skip interview and proceed with current answers ›
+    </a>
+  </div>
+</div>
+{% endblock %}
