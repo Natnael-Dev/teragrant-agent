@@ -60,6 +60,9 @@ def extract_audio_story(
     guessed_type, _ = mimetypes.guess_type(str(file_path))
     mime_type = mime_map.get(ext) or guessed_type or "audio/mpeg"
 
+    if not model or "2.0" in str(model) or "3.6" in str(model):
+        model = "gemini-1.5-flash"
+
     ai_client = client or get_gemini_client(api_key=api_key)
 
     audio_part = types.Part.from_bytes(

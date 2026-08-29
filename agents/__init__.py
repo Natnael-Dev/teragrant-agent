@@ -12,6 +12,12 @@ from .scorer_agent import score_application
 from .contradiction_agent import detect_contradictions
 from .batch_ranker_agent import rank_batch
 from .declaration_explainer_agent import generate_consent_package
+from .interview_agent import (
+    INTERVIEW_STEPS,
+    extract_answer,
+    merge_answer,
+    synthesize_audio_extraction,
+)
 
 __all__ = [
     "generate_application_pack",
@@ -21,4 +27,8 @@ __all__ = [
     "detect_contradictions",
     "rank_batch",
     "generate_consent_package",
+    "INTERVIEW_STEPS",
+    "extract_answer",
+    "merge_answer",
+    "synthesize_audio_extraction",
 ]

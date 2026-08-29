@@ -18,7 +18,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from extractors.config import get_api_key
+from extractors.config import get_api_key, MODEL_FALLBACK_CHAIN
 from extractors.vision_extractor import extract_license_data
 from extractors.audio_extractor import extract_audio_story
 
@@ -57,7 +57,7 @@ def main():
     parser = argparse.ArgumentParser(description="TeraGrant Live Extraction Demo")
     parser.add_argument("--image", type=str, default=None, help="Path to a business license image")
     parser.add_argument("--audio", type=str, default=None, help="Path to an audio voice note file")
-    parser.add_argument("--model", type=str, default="gemini-2.0-flash", help="Gemini model ID")
+    parser.add_argument("--model", type=str, default=None, help="Gemini model ID (defaults to MODEL_FALLBACK_CHAIN[0])")
     args = parser.parse_args()
 
     print("=" * 70)
@@ -82,9 +82,10 @@ def main():
     audio_path = args.audio or default_audio
 
     # 3. Vision Extraction Demo
+    effective_model = args.model or MODEL_FALLBACK_CHAIN[0]
     print("\n" + "-" * 70)
     print(f"[*] Running Vision Extraction (License OCR) on: {image_path}")
-    print(f"[*] Model: {args.model}")
+    print(f"[*] Model: {effective_model}")
     print("-" * 70)
     try:
         license_result = extract_license_data(image_path=image_path, model=args.model)
@@ -96,7 +97,7 @@ def main():
     # 4. Audio Extraction Demo
     print("\n" + "-" * 70)
     print(f"[*] Running Multilingual Audio Extraction on: {audio_path}")
-    print(f"[*] Model: {args.model}")
+    print(f"[*] Model: {effective_model}")
     print("-" * 70)
     try:
         audio_result = extract_audio_story(audio_path=audio_path, model=args.model)

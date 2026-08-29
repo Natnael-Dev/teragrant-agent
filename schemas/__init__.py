@@ -39,6 +39,10 @@ from .consent_schema import (
     DeclarationExplanation,
     ConsentPackage,
 )
+from .interview_schema import (
+    AnswerExtraction,
+    InterviewStep,
+)
 
 __all__ = [
     "ApplicationSchema",
@@ -70,4 +74,6 @@ __all__ = [
     "RankedShortlist",
     "DeclarationExplanation",
     "ConsentPackage",
+    "AnswerExtraction",
+    "InterviewStep",
 ]

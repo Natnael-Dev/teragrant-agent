@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from extractors.config import get_api_key, get_gemini_client
+from extractors.config import get_api_key, get_gemini_client, is_network_error, call_gemini_with_fallback, MODEL_FALLBACK_CHAIN
 from extractors.schemas import LicenseExtraction, AudioTranscriptExtraction
 from extractors.vision_extractor import extract_license_data
 from extractors.audio_extractor import extract_audio_story
@@ -204,3 +204,81 @@ def test_extract_audio_file_not_found():
     """Verify that a non-existent audio path raises FileNotFoundError."""
     with pytest.raises(FileNotFoundError):
         extract_audio_story(audio_path="non_existent_voice_note.mp3")
+
+
+# =========================================================================
+# NETWORK RESILIENCE & SMART FAILOVER TESTS
+# =========================================================================
+
+def test_client_timeout_http_options():
+    """Verify that get_gemini_client configures the 30-second (30000ms) timeout cap."""
+    with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
+        with patch("google.genai.Client") as mock_genai_client:
+            get_gemini_client()
+            assert mock_genai_client.called
+            call_kwargs = mock_genai_client.call_args[1]
+            assert "http_options" in call_kwargs
+            assert call_kwargs["http_options"].timeout == 30000
+
+
+def test_is_network_error_classification():
+    """Verify classification of network vs API error types."""
+    import socket
+    import httpx
+
+    # Network errors
+    assert is_network_error(TimeoutError("Operation timed out")) is True
+    assert is_network_error(ConnectionError("Connection reset by peer")) is True
+    assert is_network_error(socket.timeout("Socket timed out")) is True
+    assert is_network_error(OSError(10060, "WinError 10060 A connection attempt failed")) is True
+    assert is_network_error(httpx.ConnectTimeout("Connect timeout")) is True
+    assert is_network_error(Exception("WinError 10060 TCP connection timed out")) is True
+
+    # Non-network API errors
+    assert is_network_error(Exception("404 NOT_FOUND models/gemini-1.5-flash")) is False
+    assert is_network_error(ValueError("Invalid JSON schema structure")) is False
+
+
+def test_call_gemini_with_fallback_network_retry_and_fail_fast():
+    """Verify that network errors retry the candidate model and eventually report failure across chain."""
+    mock_client = MagicMock()
+    # Simulate repeated network failure (e.g. WinError 10060)
+    mock_client.models.generate_content.side_effect = ConnectionError("[WinError 10060] A connection attempt failed")
+
+    with patch("time.sleep") as mock_sleep:
+        with pytest.raises(RuntimeError) as exc_info:
+            call_gemini_with_fallback(
+                client=mock_client,
+                model="gemini-1.5-flash",
+                contents="test content",
+                config=None,
+            )
+
+        assert "All models failed" in str(exc_info.value)
+        assert mock_client.models.generate_content.call_count >= 2
+        assert mock_sleep.called
+
+
+def test_call_gemini_with_fallback_api_404_walks_chain():
+    """Verify that API 404/model retired errors walk the fallback chain."""
+    mock_client = MagicMock()
+    success_resp = MagicMock()
+    success_resp.text = '{"status": "ok"}'
+
+    # First model returns 404, second model succeeds
+    mock_client.models.generate_content.side_effect = [
+        Exception("404 NOT_FOUND models/gemini-1.5-flash is not found"),
+        success_resp
+    ]
+
+    resp, model_used = call_gemini_with_fallback(
+        client=mock_client,
+        model=None,
+        contents="test content",
+        config=None,
+    )
+
+    assert resp == success_resp
+    assert model_used == MODEL_FALLBACK_CHAIN[1]
+    assert mock_client.models.generate_content.call_count == 2
+

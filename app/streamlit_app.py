@@ -64,7 +64,16 @@ from agents.batch_ranker_agent import rank_batch
 from agents.declaration_explainer_agent import generate_consent_package
 from app.digital_twin import render_giz_form, convert_to_serializable
 from app.heartbeat_ui import render_heartbeat
+from app.chat_bubble_ui import render_chat_bubble, render_question_bubble
+from app.tts_ui import speak_question
 from app.rehearsal_data import get_almaz_scenario, get_nahom_scenario
+from schemas.interview_schema import InterviewStep, AnswerExtraction
+from agents.interview_agent import (
+    INTERVIEW_STEPS,
+    extract_answer,
+    merge_answer,
+    synthesize_audio_extraction,
+)
 
 
 # =============================================================================
@@ -138,9 +147,9 @@ with st.sidebar:
 
     model_choice = st.selectbox(
         "Gemini Foundation Model",
-        options=MODEL_FALLBACK_CHAIN,
+        options=["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"],
         index=0,
-        help="Select the Gemini multimodal reasoning model (defaults to gemini-3.6-flash with automatic 404 failover)."
+        help="Select the Gemini multimodal reasoning model (defaults to gemini-1.5-flash with automatic failover)."
     )
 
     st.divider()
@@ -253,177 +262,444 @@ with tab1:
         is_agent_active = st.session_state.get("is_active", False)
         render_heartbeat(is_active=is_agent_active, height=65)
 
-        # 1. Live Voice Recording via Microphone (Priority)
-        st.markdown("##### 1. Live Voice Recording (Microphone)")
-        try:
-            live_audio = st.audio_input("Record your business story (Amharic / Oromo / English)")
-        except Exception:
-            live_audio = None
+        # Supporting Documents (Available for both Guided and Free-form)
+        with st.expander("📎 Supporting Documents (License & Workshop Photo)", expanded=False):
+            uploaded_license = st.file_uploader(
+                "Upload Commercial License (.jpg/.png/.pdf)",
+                type=["jpg", "jpeg", "png", "webp", "pdf"],
+                key="license_uploader"
+            )
+            uploaded_workshop = st.file_uploader(
+                "Upload Workshop Facility Photo (.jpg/.png)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key="workshop_uploader"
+            )
 
-        # 2. Upload Audio File (Whitelist: mp3, wav, m4a, ogg, oga, webm)
-        st.markdown("##### 2. Or Upload Voice Note File")
-        uploaded_audio = st.file_uploader(
-            "Upload Voice File (.mp3/.wav/.m4a/.ogg/.oga/.webm)",
-            type=["mp3", "wav", "m4a", "ogg", "oga", "webm"],
-            key="audio_uploader"
-        )
-
-        # 3. Trade License Photo
-        st.markdown("##### 3. Trade License Photo")
-        uploaded_license = st.file_uploader(
-            "Upload Commercial License (.jpg/.png)",
-            type=["jpg", "jpeg", "png", "webp", "pdf"],
-            key="license_uploader"
-        )
-
-        # 4. Workshop Facility Photo (Batch 9 requirement)
-        st.markdown("##### 4. Workshop / Facility Photo (Optional)")
-        uploaded_workshop = st.file_uploader(
-            "Upload Workshop Facility Photo (.jpg/.png)",
-            type=["jpg", "jpeg", "png", "webp"],
-            key="workshop_uploader"
-        )
-
-        # 5. Spoken Language
-        st.markdown("##### 5. Spoken Language")
-        intake_language = st.radio(
-            "Language",
-            options=["Amharic", "Oromo", "English"],
+        intake_style = st.radio(
+            "Select Intake Mode:",
+            options=[
+                "🗣️ Guided Interview (AI asks you)",
+                "📄 Free-form (one voice note)",
+            ],
             index=0,
             horizontal=True,
+            key="intake_style_radio"
         )
+        is_guided = "Guided" in intake_style
 
-        process_btn = st.button("🚀 Process Intake & Fill Form", type="primary", use_container_width=True)
+        if is_guided:
+            # =================================================================
+            # GUIDED CONVERSATIONAL INTERVIEW STATE MACHINE
+            # =================================================================
+            step_idx = st.session_state.setdefault("interview_step_index", 0)
+            interview_data = st.session_state.setdefault("interview_data", {})
+            interview_transcripts = st.session_state.setdefault("interview_transcripts", [])
 
-    # -------------------------------------------------------------------------
-    # PIPELINE EXECUTION (STRICT ZERO-FAKE-DATA IN LIVE MODE + STEP STATUS)
-    # -------------------------------------------------------------------------
-    if process_btn and is_live_mode:
-        current_key = os.getenv("GEMINI_API_KEY")
-        if not current_key:
-            st.error("❌ Gemini API Key is required for Live Mode! Please enter it in the sidebar.")
-            st.stop()
+            if step_idx < len(INTERVIEW_STEPS):
+                current_step = INTERVIEW_STEPS[step_idx]
+                st.progress(step_idx / float(len(INTERVIEW_STEPS)))
+                st.caption(f"Question {step_idx + 1} of {len(INTERVIEW_STEPS)} • Field: `{current_step.field_path}`")
 
-        # Audio priority: Live mic recording ALWAYS takes priority over file upload
-        audio_bytes = None
-        audio_ext = ".wav"
-        if live_audio:
-            audio_bytes = live_audio.read()
-            audio_ext = ".wav"
-        elif uploaded_audio:
-            audio_bytes = uploaded_audio.read()
-            audio_ext = Path(uploaded_audio.name).suffix.lower()
+                # AI Question Bubble
+                render_question_bubble(
+                    question_en=current_step.question_en,
+                    question_am=current_step.question_am,
+                    question_or=current_step.question_or,
+                    step_id=current_step.step_id,
+                    step_num=step_idx + 1,
+                    total_steps=len(INTERVIEW_STEPS),
+                )
+
+                # Browser TTS Control
+                speak_question(text=current_step.question_en, lang="en", autoplay=False)
+
+                # Audio Recording per step
+                step_audio = st.audio_input(
+                    f"Speak your answer for {current_step.step_id}",
+                    key=f"guided_audio_{step_idx}"
+                )
+
+                if step_audio is not None:
+                    raw_audio_bytes = step_audio.getvalue()
+                    audio_sig = f"step_{step_idx}_{len(raw_audio_bytes)}"
+                    if st.session_state.get(f"sig_{step_idx}") != audio_sig:
+                        curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
+                        if curr_key:
+                            with st.spinner("🎙️ Transcribing and extracting fact..."):
+                                try:
+                                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_f:
+                                        tmp_f.write(raw_audio_bytes)
+                                        tmp_f_path = tmp_f.name
+                                    step_trans_obj = extract_audio_story(audio_path=tmp_f_path, model=model_choice, api_key=curr_key)
+                                    st.session_state[f"transcript_{step_idx}"] = step_trans_obj.transcript
+
+                                    ans_ext = extract_answer(
+                                        step=current_step,
+                                        transcript=step_trans_obj.transcript,
+                                        model=model_choice,
+                                        api_key=curr_key
+                                    )
+                                    st.session_state[f"extraction_{step_idx}"] = ans_ext
+                                    st.session_state[f"sig_{step_idx}"] = audio_sig
+                                except Exception as err:
+                                    st.session_state[f"sig_{step_idx}"] = audio_sig
+                                    st.warning(f"Note: {str(err)}")
+
+                trans_val = st.session_state.get(f"transcript_{step_idx}")
+                ext_val = st.session_state.get(f"extraction_{step_idx}")
+
+                if trans_val:
+                    st.markdown(f"**🗣️ Spoken Transcript:** *\"{trans_val}\"*")
+
+                can_advance = False
+                if ext_val:
+                    if ext_val.value and ext_val.confidence >= 0.5:
+                        st.success(f"✅ Extracted: **{ext_val.value}** (Confidence: {int(ext_val.confidence * 100)}%)")
+                        updated_int_data = merge_answer(st.session_state["interview_data"], current_step, ext_val)
+                        st.session_state["interview_data"] = updated_int_data
+                        st.session_state["extracted_data"] = convert_to_serializable(updated_int_data)
+                        can_advance = True
+                    else:
+                        st.warning("⚠️ I didn't catch that fact clearly — record again or skip.")
+
+                col_n1, col_n2, col_n3 = st.columns([1.5, 1.5, 1])
+                with col_n1:
+                    if st.button("➡️ Next Question", type="primary" if can_advance else "secondary", disabled=not can_advance, use_container_width=True, key=f"next_{step_idx}"):
+                        if trans_val:
+                            st.session_state["interview_transcripts"].append(f"Q: {current_step.question_en} | A: {trans_val}")
+                        st.session_state["interview_step_index"] = step_idx + 1
+                        st.rerun()
+
+                with col_n2:
+                    if st.button("⏭️ Skip Question", type="secondary", use_container_width=True, key=f"skip_{step_idx}"):
+                        st.session_state["interview_transcripts"].append(f"Q: {current_step.question_en} | A: [Skipped]")
+                        st.session_state["interview_step_index"] = step_idx + 1
+                        st.rerun()
+
+                with col_n3:
+                    if st.button("🔄 Reset", type="secondary", use_container_width=True, key=f"reset_{step_idx}"):
+                        st.session_state["interview_step_index"] = 0
+                        st.session_state["interview_data"] = {}
+                        st.session_state["interview_transcripts"] = []
+                        st.session_state["extracted_data"] = {}
+                        st.rerun()
+
+            else:
+                # All 7 questions completed!
+                st.progress(1.0)
+                st.success("🎉 All 7 interview questions completed! Review your answers or submit for committee evaluation.")
+
+                col_f1, col_f2 = st.columns([2, 1])
+                with col_f1:
+                    finish_guided_btn = st.button("🏁 Finish & Score Application", type="primary", use_container_width=True)
+                with col_f2:
+                    if st.button("🔄 Restart Interview", type="secondary", use_container_width=True):
+                        st.session_state["interview_step_index"] = 0
+                        st.session_state["interview_data"] = {}
+                        st.session_state["interview_transcripts"] = []
+                        st.session_state["extracted_data"] = {}
+                        st.rerun()
+
+                if finish_guided_btn:
+                    current_key = os.getenv("GEMINI_API_KEY")
+                    if not current_key:
+                        st.error("❌ Gemini API Key is required for Live Mode! Please enter it in the sidebar.")
+                        st.stop()
+
+                    st.session_state["is_active"] = True
+
+                    with st.status("🤖 Processing Guided Interview Dossier & Scoring...", expanded=True) as status_box:
+                        try:
+                            # Step 1: Synthesize
+                            st.write("🎙️ **Step 1/4: Synthesizing Guided Voice Intake Dossier...**")
+                            audio_data = synthesize_audio_extraction(
+                                interview_data=st.session_state.get("interview_data", {}),
+                                transcript_parts=st.session_state.get("interview_transcripts", [])
+                            )
+                            st.session_state["latest_audio_transcript"] = audio_data
+
+                            # Step 2: License & Workshop
+                            st.write("👁️ **Step 2/4: Reading Trade License & Analyzing Facility Assets...**")
+                            if uploaded_license:
+                                with tempfile.NamedTemporaryFile(suffix=Path(uploaded_license.name).suffix, delete=False) as tmp_img:
+                                    tmp_img.write(uploaded_license.read())
+                                    tmp_img_path = tmp_img.name
+                                license_data = extract_license_data(image_path=tmp_img_path, model=model_choice)
+                            else:
+                                license_data = LicenseExtraction(
+                                    is_legible=False,
+                                    extraction_notes="No official commercial license document uploaded."
+                                )
+
+                            workshop_data = None
+                            if uploaded_workshop:
+                                with tempfile.NamedTemporaryFile(suffix=Path(uploaded_workshop.name).suffix, delete=False) as tmp_ws:
+                                    tmp_ws.write(uploaded_workshop.read())
+                                    tmp_ws_path = tmp_ws.name
+                                workshop_data = extract_workshop_data(image_path=tmp_ws_path, model=model_choice)
+
+                            # Step 3: Application Pack & Gaps
+                            st.write("📋 **Step 3/4: Mapping to Official GIZ Form & Flagging Information Gaps...**")
+                            pack = generate_application_pack(
+                                license_data=license_data,
+                                audio_data=audio_data,
+                                workshop_data=workshop_data,
+                                model=model_choice
+                            )
+
+                            # Step 4: Gate, Router, Scorer, Contradictions
+                            st.write("⚖️ **Step 4/4: Running 15-Point Eligibility Gate, Grid Router & 100-Point Scorer...**")
+                            gate = run_eligibility_gate(pack.application)
+                            contradictions = detect_contradictions(pack=pack, workshop_data=workshop_data, model=model_choice)
+                            if pack.application and pack.impact:
+                                grid_variant = route_to_grid_variant(pack.application, pack.impact, model=model_choice)
+                            else:
+                                grid_variant = GridVariant.GENERAL_SME
+                            scoring_result = score_application(pack=pack, variant=grid_variant, model=model_choice)
+
+                            # Map data to digital twin
+                            app_data = pack.application
+                            imp_data = pack.impact
+                            b_info = app_data.business_info if app_data else None
+                            emp = app_data.employment if app_data else None
+
+                            extracted_data_map = {
+                                "company_name": b_info.business_name if b_info else None,
+                                "tin_number": b_info.tin_number if b_info else None,
+                                "address": b_info.location if b_info else None,
+                                "mobile": "+251 (On File)",
+                                "years_in_operation": b_info.years_in_operation if b_info else None,
+                                "total_staff": emp.total_staff if emp else None,
+                                "female_staff": emp.gender_split.female if (emp and emp.gender_split) else None,
+                                "main_products": imp_data.project_title if imp_data else (audio_data.product_type or audio_data.impact_summary),
+                                "organogram_status": "Formal Organization" if (app_data and app_data.organogram) else "Owner-Managed Structure",
+                                "machinery_requested": ", ".join(m.name for m in app_data.financials.machinery_list) if (app_data and app_data.financials and app_data.financials.machinery_list) else (imp_data.milestones[0] if (imp_data and imp_data.milestones) else "Equipment Upgrades"),
+                                "requested_etb": imp_data.etb_financial_target if imp_data else None,
+                                "gap_fields": [g.field_name.split(".")[-1] for g in pack.gaps],
+                            }
+
+                            st.session_state["extracted_data"] = extracted_data_map
+                            st.session_state["latest_pack"] = pack
+                            st.session_state["latest_score"] = scoring_result
+                            st.session_state["latest_contradictions"] = contradictions
+                            st.session_state["is_active"] = False
+
+                            status_box.update(label="✅ Guided Interview Application Processed Successfully!", state="complete", expanded=False)
+                            st.rerun()
+
+                        except Exception as e:
+                            st.session_state["is_active"] = False
+                            err_msg = str(e)
+                            status_box.update(label=f"❌ Live API Failed: {err_msg}", state="error", expanded=True)
+                            if "NETWORK UNREACHABLE" in err_msg:
+                                st.error(
+                                    f"❌ **Network Failure:** {err_msg}\n\n"
+                                    "- 📶 Connect your laptop to a phone hotspot and retry.\n"
+                                    "- 🔐 If on venue Wi-Fi, open a browser and complete the login/captive-portal page first.\n"
+                                    "- 🚫 Disable VPN/proxy/strict antivirus, then retry."
+                                )
+                            else:
+                                st.error(f"Live API failed: {err_msg}.")
+
         else:
-            st.error("❌ Please record with your microphone or upload a voice note first.")
-            st.stop()
-
-        st.session_state["is_active"] = True
-
-        with st.status("🤖 Processing SME Application Intake...", expanded=True) as status_box:
+            # =================================================================
+            # FREE-FORM VOICE INTAKE PIPELINE (ORIGINAL)
+            # =================================================================
+            # 1. Live Voice Recording via Microphone (Priority)
+            st.markdown("##### 1. Live Voice Recording (Microphone)")
             try:
-                # -------------------------------------------------------------
-                # STEP 1: Transcribe Voice Note
-                # -------------------------------------------------------------
-                st.write("🎙️ **Step 1/4: Transcribing Voice Note & Extracting Business Narrative...**")
-                with tempfile.NamedTemporaryFile(suffix=audio_ext, delete=False) as tmp_aud:
-                    tmp_aud.write(audio_bytes)
-                    tmp_aud_path = tmp_aud.name
+                live_audio = st.audio_input("Record your business story (Amharic / Oromo / English)")
+            except Exception:
+                live_audio = None
 
-                audio_data = extract_audio_story(audio_path=tmp_aud_path, model=model_choice)
-                st.session_state["latest_audio_transcript"] = audio_data
+            # 2. Upload Audio File
+            st.markdown("##### 2. Or Upload Voice Note File")
+            uploaded_audio = st.file_uploader(
+                "Upload Voice File (.mp3/.wav/.m4a/.ogg/.oga/.webm)",
+                type=["mp3", "wav", "m4a", "ogg", "oga", "webm"],
+                key="audio_uploader"
+            )
 
-                # -------------------------------------------------------------
-                # STEP 2: Read Trade License & Workshop Photo
-                # -------------------------------------------------------------
-                st.write("👁️ **Step 2/4: Reading Trade License & Analyzing Facility Assets...**")
-                if uploaded_license:
-                    with tempfile.NamedTemporaryFile(suffix=Path(uploaded_license.name).suffix, delete=False) as tmp_img:
-                        tmp_img.write(uploaded_license.read())
-                        tmp_img_path = tmp_img.name
-                    license_data = extract_license_data(image_path=tmp_img_path, model=model_choice)
+            # 3. Spoken Language
+            st.markdown("##### 3. Spoken Language")
+            intake_language = st.radio(
+                "Language",
+                options=["Amharic", "Oromo", "English"],
+                index=0,
+                horizontal=True,
+            )
+
+            # Real-time Voice Transcription Trigger (Chat Bubble UI)
+            audio_sig = None
+            if is_live_mode:
+                raw_audio = None
+                audio_fmt = ".wav"
+                if live_audio is not None:
+                    raw_audio = live_audio.getvalue()
+                    audio_fmt = ".wav"
+                    audio_sig = f"live_mic_{len(raw_audio)}_{hash(raw_audio[:500]) if len(raw_audio) > 0 else 0}"
+                elif uploaded_audio is not None:
+                    raw_audio = uploaded_audio.getvalue()
+                    audio_fmt = Path(uploaded_audio.name).suffix.lower()
+                    audio_sig = f"upload_{uploaded_audio.name}_{len(raw_audio)}"
+
+                if model_choice and ("2.0" in model_choice or "3.6" in model_choice):
+                    model_choice = "gemini-1.5-flash"
+
+                if raw_audio and st.session_state.get("last_transcribed_audio_sig") != audio_sig:
+                    curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
+                    if curr_key:
+                        with st.spinner("🎙️ Agent listening and transcribing voice note in real-time..."):
+                            try:
+                                with tempfile.NamedTemporaryFile(suffix=audio_fmt, delete=False) as tmp_live_aud:
+                                    tmp_live_aud.write(raw_audio)
+                                    tmp_live_path = tmp_live_aud.name
+                                auto_audio_data = extract_audio_story(audio_path=tmp_live_path, model=model_choice, api_key=curr_key)
+                                st.session_state["latest_audio_transcript"] = auto_audio_data
+                                st.session_state["last_transcribed_audio_sig"] = audio_sig
+                            except Exception as live_err:
+                                st.session_state["last_transcribed_audio_sig"] = audio_sig
+                                live_msg = str(live_err)
+                                if "NETWORK UNREACHABLE" in live_msg:
+                                    st.error(
+                                        f"❌ **Network Failure during Voice Intake:** {live_msg}\n\n"
+                                        "- 📶 Connect your laptop to a phone hotspot and retry.\n"
+                                        "- 🔐 If on venue Wi-Fi, open a browser and complete the login/captive-portal page first.\n"
+                                        "- 🚫 Disable VPN/proxy/strict antivirus, then retry."
+                                    )
+                                else:
+                                    st.caption(f"Voice note intake: {live_msg}")
+
+            # Render WhatsApp-style Live Chat Bubble
+            if st.session_state.get("latest_audio_transcript"):
+                st.markdown("##### 💬 Live Conversational Transcript")
+                render_chat_bubble(st.session_state["latest_audio_transcript"])
+
+            process_btn = st.button("🚀 Process & Score Application", type="primary", use_container_width=True)
+
+            # PIPELINE EXECUTION FOR FREE-FORM
+            if process_btn and is_live_mode:
+                if model_choice and ("2.0" in model_choice or "3.6" in model_choice):
+                    model_choice = "gemini-1.5-flash"
+
+                current_key = os.getenv("GEMINI_API_KEY")
+                if not current_key:
+                    st.error("❌ Gemini API Key is required for Live Mode! Please enter it in the sidebar.")
+                    st.stop()
+
+                audio_bytes = None
+                audio_ext = ".wav"
+                if live_audio:
+                    audio_bytes = live_audio.read()
+                    audio_ext = ".wav"
+                elif uploaded_audio:
+                    audio_bytes = uploaded_audio.read()
+                    audio_ext = Path(uploaded_audio.name).suffix.lower()
                 else:
-                    license_data = LicenseExtraction(
-                        is_legible=False,
-                        extraction_notes="No official commercial license document uploaded."
-                    )
+                    st.error("❌ Please record with your microphone or upload a voice note first.")
+                    st.stop()
 
-                workshop_data = None
-                if uploaded_workshop:
-                    with tempfile.NamedTemporaryFile(suffix=Path(uploaded_workshop.name).suffix, delete=False) as tmp_ws:
-                        tmp_ws.write(uploaded_workshop.read())
-                        tmp_ws_path = tmp_ws.name
-                    workshop_data = extract_workshop_data(image_path=tmp_ws_path, model=model_choice)
+                st.session_state["is_active"] = True
 
-                # -------------------------------------------------------------
-                # STEP 3: Multimodal Mapping & Gap Analysis
-                # -------------------------------------------------------------
-                st.write("📋 **Step 3/4: Mapping to Official GIZ Form & Flagging Information Gaps...**")
-                pack = generate_application_pack(
-                    license_data=license_data,
-                    audio_data=audio_data,
-                    workshop_data=workshop_data,
-                    model=model_choice
-                )
+                with st.status("🤖 Processing SME Application Intake...", expanded=True) as status_box:
+                    try:
+                        st.write("🎙️ **Step 1/4: Transcribing Voice Note & Extracting Business Narrative...**")
+                        if st.session_state.get("latest_audio_transcript") and audio_sig and st.session_state.get("last_transcribed_audio_sig") == audio_sig:
+                            audio_data = st.session_state["latest_audio_transcript"]
+                        else:
+                            with tempfile.NamedTemporaryFile(suffix=audio_ext, delete=False) as tmp_aud:
+                                tmp_aud.write(audio_bytes)
+                                tmp_aud_path = tmp_aud.name
+                            audio_data = extract_audio_story(audio_path=tmp_aud_path, model=model_choice)
+                            st.session_state["latest_audio_transcript"] = audio_data
+                            if audio_sig:
+                                st.session_state["last_transcribed_audio_sig"] = audio_sig
 
-                # -------------------------------------------------------------
-                # STEP 4: Eligibility Gate, Router & 100-Point Scorer
-                # -------------------------------------------------------------
-                st.write("⚖️ **Step 4/4: Running 15-Point Eligibility Gate, Grid Router & 100-Point Scorer...**")
-                gate = run_eligibility_gate(pack.application)
+                        # Step 2
+                        st.write("👁️ **Step 2/4: Reading Trade License & Analyzing Facility Assets...**")
+                        if uploaded_license:
+                            with tempfile.NamedTemporaryFile(suffix=Path(uploaded_license.name).suffix, delete=False) as tmp_img:
+                                tmp_img.write(uploaded_license.read())
+                                tmp_img_path = tmp_img.name
+                            license_data = extract_license_data(image_path=tmp_img_path, model=model_choice)
+                        else:
+                            license_data = LicenseExtraction(
+                                is_legible=False,
+                                extraction_notes="No official commercial license document uploaded."
+                            )
 
-                contradictions = detect_contradictions(
-                    pack=pack,
-                    workshop_data=workshop_data,
-                    model=model_choice
-                )
+                        workshop_data = None
+                        if uploaded_workshop:
+                            with tempfile.NamedTemporaryFile(suffix=Path(uploaded_workshop.name).suffix, delete=False) as tmp_ws:
+                                tmp_ws.write(uploaded_workshop.read())
+                                tmp_ws_path = tmp_ws.name
+                            workshop_data = extract_workshop_data(image_path=tmp_ws_path, model=model_choice)
 
-                if pack.application and pack.impact:
-                    grid_variant = route_to_grid_variant(pack.application, pack.impact, model=model_choice)
-                else:
-                    grid_variant = GridVariant.GENERAL_SME
+                        # Step 3
+                        st.write("📋 **Step 3/4: Mapping to Official GIZ Form & Flagging Information Gaps...**")
+                        pack = generate_application_pack(
+                            license_data=license_data,
+                            audio_data=audio_data,
+                            workshop_data=workshop_data,
+                            model=model_choice
+                        )
 
-                scoring_result = score_application(pack=pack, variant=grid_variant, model=model_choice)
+                        # Step 4
+                        st.write("⚖️ **Step 4/4: Running 15-Point Eligibility Gate, Grid Router & 100-Point Scorer...**")
+                        gate = run_eligibility_gate(pack.application)
+                        contradictions = detect_contradictions(pack=pack, workshop_data=workshop_data, model=model_choice)
+                        if pack.application and pack.impact:
+                            grid_variant = route_to_grid_variant(pack.application, pack.impact, model=model_choice)
+                        else:
+                            grid_variant = GridVariant.GENERAL_SME
+                        scoring_result = score_application(pack=pack, variant=grid_variant, model=model_choice)
 
-                # Map real extracted data to Digital Twin Form
-                app_data = pack.application
-                imp_data = pack.impact
-                b_info = app_data.business_info if app_data else None
-                emp = app_data.employment if app_data else None
+                        app_data = pack.application
+                        imp_data = pack.impact
+                        b_info = app_data.business_info if app_data else None
+                        emp = app_data.employment if app_data else None
 
-                extracted_data_map = {
-                    "company_name": b_info.business_name if b_info else None,
-                    "tin_number": b_info.tin_number if b_info else None,
-                    "address": b_info.location if b_info else None,
-                    "mobile": "+251 (On File)",
-                    "years_in_operation": b_info.years_in_operation if b_info else None,
-                    "total_staff": emp.total_staff if emp else None,
-                    "female_staff": emp.gender_split.female if (emp and emp.gender_split) else None,
-                    "main_products": imp_data.project_title if imp_data else (audio_data.product_type or audio_data.impact_summary),
-                    "organogram_status": "Formal Organization" if (app_data and app_data.organogram) else "Owner-Managed Structure",
-                    "machinery_requested": ", ".join(m.name for m in app_data.financials.machinery_list) if (app_data and app_data.financials and app_data.financials.machinery_list) else (imp_data.milestones[0] if (imp_data and imp_data.milestones) else "Equipment Upgrades"),
-                    "requested_etb": imp_data.etb_financial_target if imp_data else None,
-                    "gap_fields": [g.field_name.split(".")[-1] for g in pack.gaps],
-                }
+                        extracted_data_map = {
+                            "company_name": b_info.business_name if b_info else None,
+                            "tin_number": b_info.tin_number if b_info else None,
+                            "address": b_info.location if b_info else None,
+                            "mobile": "+251 (On File)",
+                            "years_in_operation": b_info.years_in_operation if b_info else None,
+                            "total_staff": emp.total_staff if emp else None,
+                            "female_staff": emp.gender_split.female if (emp and emp.gender_split) else None,
+                            "main_products": imp_data.project_title if imp_data else (audio_data.product_type or audio_data.impact_summary),
+                            "organogram_status": "Formal Organization" if (app_data and app_data.organogram) else "Owner-Managed Structure",
+                            "machinery_requested": ", ".join(m.name for m in app_data.financials.machinery_list) if (app_data and app_data.financials and app_data.financials.machinery_list) else (imp_data.milestones[0] if (imp_data and imp_data.milestones) else "Equipment Upgrades"),
+                            "requested_etb": imp_data.etb_financial_target if imp_data else None,
+                            "gap_fields": [g.field_name.split(".")[-1] for g in pack.gaps],
+                        }
 
-                # Store real state
-                st.session_state["extracted_data"] = extracted_data_map
-                st.session_state["latest_pack"] = pack
-                st.session_state["latest_score"] = scoring_result
-                st.session_state["latest_contradictions"] = contradictions
-                st.session_state["is_active"] = False
+                        st.session_state["extracted_data"] = extracted_data_map
+                        st.session_state["latest_pack"] = pack
+                        st.session_state["latest_score"] = scoring_result
+                        st.session_state["latest_contradictions"] = contradictions
+                        st.session_state["is_active"] = False
 
-                status_box.update(label="✅ Application Processed Successfully!", state="complete", expanded=False)
-                st.rerun()
+                        status_box.update(label="✅ Application Processed Successfully!", state="complete", expanded=False)
+                        st.rerun()
 
-            except Exception as e:
-                # LIVE-MODE PURITY: On any exception, reset form state to empty
-                st.session_state["extracted_data"] = {}
-                st.session_state["latest_pack"] = None
-                st.session_state["latest_score"] = None
-                st.session_state["latest_contradictions"] = []
-                st.session_state["is_active"] = False
-                status_box.update(label=f"❌ Live API Failed: {str(e)}", state="error", expanded=True)
-                st.error(f"Live API failed: {str(e)}. No fake data shown in Live Mode.")
+                    except Exception as e:
+                        st.session_state["extracted_data"] = {}
+                        st.session_state["latest_pack"] = None
+                        st.session_state["latest_score"] = None
+                        st.session_state["latest_contradictions"] = []
+                        st.session_state["is_active"] = False
+                        err_msg = str(e)
+                        status_box.update(label=f"❌ Live API Failed: {err_msg}", state="error", expanded=True)
+                        if "NETWORK UNREACHABLE" in err_msg:
+                            st.error(
+                                f"❌ **Network Failure:** {err_msg}\n\n"
+                                "- 📶 Connect your laptop to a phone hotspot and retry.\n"
+                                "- 🔐 If on venue Wi-Fi, open a browser and complete the login/captive-portal page first.\n"
+                                "- 🚫 Disable VPN/proxy/strict antivirus, then retry."
+                            )
+                        else:
+                            st.error(f"Live API failed: {err_msg}. No fake data shown in Live Mode.")
 
     # -------------------------------------------------------------------------
     # LEFT COLUMN: DIGITAL TWIN FORM & POST-EVALUATION METRICS
@@ -697,7 +973,7 @@ with tab3:
         st.write("")
         gen_scripts_btn = st.button("📜 Generate Verbal Consent Scripts", type="primary", use_container_width=True)
 
-    if gen_scripts_btn or "consent_package" not in st.session_state:
+    if gen_scripts_btn:
         with st.spinner(f"Translating legal covenants into grassroots verbal scripts in {selected_lang}..."):
             current_key = os.getenv("GEMINI_API_KEY")
             if current_key:
@@ -705,6 +981,12 @@ with tab3:
             else:
                 consent_pkg = generate_consent_package(detected_language=selected_lang)
             st.session_state["consent_package"] = consent_pkg
+    elif "consent_package" not in st.session_state:
+        from agents.declaration_explainer_agent import _build_fallback_consent
+        st.session_state["consent_package"] = ConsentPackage(
+            explanations=_build_fallback_consent(selected_lang),
+            overall_warning="CRITICAL CONSTRAINT: This package contains verbal explanation scripts for the voice agent only. Checkboxes MUST NEVER be auto-ticked. Consent must be explicitly and verifiably confirmed by the applicant."
+        )
 
     if "consent_package" in st.session_state:
         pkg: ConsentPackage = st.session_state["consent_package"]

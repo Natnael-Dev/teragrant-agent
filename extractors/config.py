@@ -1,18 +1,22 @@
 """
 Configuration and Client Factory for Google Gemini API.
-Includes Model Fallback Chain for 404/Retired Model resilience.
+Includes Client Timeout Cap and Smart Error-Class Failover / Fallback Chain.
 """
 
 import os
+import socket
+import time
 from typing import Optional, Any, Tuple, List
 from dotenv import load_dotenv
+import httpx
 from google import genai
+from google.genai import types
 
 # Load environment variables from .env file
 load_dotenv()
 
 # Fallback chain for automatic failover when a model returns 404 / retired
-MODEL_FALLBACK_CHAIN: List[str] = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+MODEL_FALLBACK_CHAIN: List[str] = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
 
 
 def get_api_key() -> str:
@@ -31,10 +35,69 @@ def get_api_key() -> str:
 
 def get_gemini_client(api_key: Optional[str] = None) -> genai.Client:
     """
-    Initializes and returns a Google GenAI Client instance.
+    Initializes and returns a Google GenAI Client instance with a hard 30-second timeout cap
+    (http_options timeout=30000 ms) so dead transport connections fail fast.
     """
     effective_key = api_key or get_api_key()
-    return genai.Client(api_key=effective_key)
+    http_opts = types.HttpOptions(timeout=30000)
+    return genai.Client(api_key=effective_key, http_options=http_opts)
+
+
+def is_network_error(err: Exception) -> bool:
+    """
+    Classifies whether an exception is a transport/network layer failure
+    (e.g., TCP timeout, DNS resolution failure, connection reset/refused, WinError 10060, httpx network/timeout error).
+    """
+    if isinstance(err, (
+        TimeoutError,
+        ConnectionError,
+        socket.timeout,
+        socket.gaierror,
+        httpx.TimeoutException,
+        httpx.NetworkError,
+        httpx.ConnectError,
+        httpx.ConnectTimeout,
+        httpx.ReadTimeout,
+    )):
+        return True
+
+    if isinstance(err, OSError):
+        win_err = getattr(err, "winerror", None)
+        if win_err in (10060, 10061, 10054, 10051, 10065, 10053):
+            return True
+        err_no = getattr(err, "errno", None)
+        if err_no in (110, 111, 101, 104):
+            return True
+
+    err_str = str(err).lower()
+    network_indicators = [
+        "10060",
+        "winerror 10060",
+        "wsaetimedout",
+        "timed out",
+        "timeout",
+        "connection error",
+        "connection refused",
+        "connection reset",
+        "network unreachable",
+        "name or service not known",
+        "getaddrinfo failed",
+        "failed to establish a new connection",
+        "max retries exceeded",
+        "transport error",
+        "connecterror",
+        "readtimeout",
+    ]
+    if any(ind in err_str for ind in network_indicators):
+        return True
+
+    # Check wrapped causes
+    if err.__cause__ and is_network_error(err.__cause__):
+        return True
+    if err.__context__ and is_network_error(err.__context__):
+        return True
+
+    return False
 
 
 def call_gemini_with_fallback(
@@ -44,8 +107,10 @@ def call_gemini_with_fallback(
     config: Any,
 ) -> Tuple[Any, str]:
     """
-    Executes client.models.generate_content with automatic 404/NotFound failover
-    across the MODEL_FALLBACK_CHAIN.
+    Executes client.models.generate_content with smart error-class failover:
+    - Overrides legacy/unsupported model names to gemini-1.5-flash.
+    - If it's a network error, retries ONCE on the SAME model, then moves to next.
+    - If it's a 404 / 429 / not found, walks the MODEL_FALLBACK_CHAIN candidates.
 
     Args:
         client: The initialized genai.Client instance.
@@ -56,32 +121,44 @@ def call_gemini_with_fallback(
     Returns:
         Tuple[Any, str]: (response object, model_name_used)
     """
-    primary_model = model or MODEL_FALLBACK_CHAIN[0]
-    
-    # Build candidate model list with primary first, followed by remaining fallback chain
-    candidates = [primary_model]
-    for fallback_m in MODEL_FALLBACK_CHAIN:
-        if fallback_m not in candidates:
-            candidates.append(fallback_m)
+    if model and ("2.0" in str(model) or "3.6" in str(model)):
+        model = "gemini-1.5-flash"
+        
+    candidates = [str(model)] if model else []
+    for m in MODEL_FALLBACK_CHAIN:
+        if m not in candidates:
+            candidates.append(m)
 
     last_err: Optional[Exception] = None
     for candidate in candidates:
         try:
+            # Force string conversion of model name
             response = client.models.generate_content(
-                model=candidate,
+                model=str(candidate),
                 contents=contents,
                 config=config,
             )
             return response, candidate
         except Exception as err:
-            err_str = str(err).lower()
             last_err = err
-            # Check for 404 / NotFound / Model not found
-            if "404" in err_str or "not found" in err_str or "not_found" in err_str or "is not supported" in err_str:
-                continue
-            # For other non-404 errors on the first attempt, also try the next model just in case of model-specific failure
-            continue
+            err_str = str(err).lower()
 
-    if last_err:
-        raise last_err
-    raise RuntimeError("Failed to generate content across all fallback models.")
+            # If it's a network error, retry ONCE on the SAME model, then move to next
+            if is_network_error(err):
+                time.sleep(1)
+                try:
+                    retry_resp = client.models.generate_content(
+                        model=str(candidate),
+                        contents=contents,
+                        config=config,
+                    )
+                    return retry_resp, candidate
+                except Exception:
+                    continue  # Move to next model in chain
+
+            # If it's a 404 or 429 or not found, just log and move to next model
+            if "404" in err_str or "429" in err_str or "not found" in err_str or "is not supported" in err_str or "quota" in err_str:
+                continue
+
+    # If we get here, ALL models failed.
+    raise RuntimeError(f"All models failed. Last error: {str(last_err)}")
