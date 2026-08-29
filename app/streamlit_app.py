@@ -1,11 +1,10 @@
 """
-TeraGrant Agent — AI Intake & Evaluation Platform (Batch 23 Truth Layer UI).
+TeraGrant Agent — AI Intake & Evaluation Platform (Batch 25 App Shell & Home Page).
 AI Builder Hackathon 2026 | Challenge 1 (SME Grant Automation)
 
-An end-to-end multi-agent truth layer system that converts informal voice notes, trade license photos,
-and workshop facility images into audit-grade grant application packs with epistemic provenance,
-evaluates eligibility deterministically, scores across 3 track variants, calculates transparency metrics,
-and defends ranked portfolio shortlists.
+Figma-faithful application shell with clean white sidebar, navigation router,
+pixel-accurate Home Page (Image 11), and preserved working workspaces for My Application,
+Batch Review, and Evidence Library.
 """
 
 import base64
@@ -100,10 +99,11 @@ from agents.interview_agent import (
     merge_answer,
     synthesize_audio_extraction,
 )
+from app.ui_helpers import evidence_pct, row_status, kpi_stats
 
 
 # =============================================================================
-# PAGE CONFIGURATION & SHADCN / TAILWIND DESIGN SYSTEM
+# PAGE CONFIGURATION & GLOBAL DESIGN SYSTEM (Inter, Noto Sans Ethiopic, Tokens)
 # =============================================================================
 st.set_page_config(
     page_title="TeraGrant — Talk. Upload. Verify. Score. Defend.",
@@ -114,7 +114,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
 
     /* 1. Hide default Streamlit chrome */
     #MainMenu {visibility: hidden;}
@@ -124,11 +124,11 @@ st.markdown("""
     /* 2. Global Page Styling */
     .stApp {
         background-color: #F6F7F9;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-family: 'Inter', 'Noto Sans Ethiopic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         color: #111827;
     }
 
-    /* 3. Card Containers (shadcn / Tailwind clean aesthetic) */
+    /* 3. Cards */
     .tg-card {
         background: #FFFFFF;
         border: 1px solid #E5E7EB;
@@ -144,30 +144,12 @@ st.markdown("""
         border: 1px solid #E5E7EB;
     }
 
-    /* 4. Header Story */
-    .header-story {
-        padding: 0.5rem 0 1.2rem 0;
-    }
-    .main-title {
-        font-size: 1.95rem;
-        font-weight: 800;
-        color: #111827;
-        letter-spacing: -0.6px;
-        margin-bottom: 0.2rem;
-    }
-    .main-subtitle {
-        font-size: 0.95rem;
-        color: #6B7280;
-        font-weight: 400;
-        line-height: 1.4;
-    }
-
-    /* 5. Big Touch Targets & Buttons */
+    /* 4. Touch Targets & Buttons */
     .stButton > button {
         min-height: 48px;
         border-radius: 10px;
         font-weight: 600;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', 'Noto Sans Ethiopic', sans-serif;
         border: 1px solid #E5E7EB;
         transition: all 0.15s ease-in-out;
     }
@@ -181,72 +163,68 @@ st.markdown("""
         border-color: #047857 !important;
     }
 
-    /* 6. Step Cards */
-    .step-card {
-        background: #F9FAFB;
-        border: 1px solid #E5E7EB;
-        border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 12px;
-    }
-    .step-title {
-        font-size: 12.5px;
-        font-weight: 700;
-        color: #111827;
-        margin-bottom: 6px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-    }
-    .step-subtitle {
-        font-size: 10.5px;
-        color: #6B7280;
-        margin-bottom: 8px;
-    }
-
-    /* 7. Honest Status Badges */
+    /* 5. Status Chips */
     .chip {
         font-size: 10px;
         font-weight: 700;
         padding: 3px 8px;
         border-radius: 6px;
         text-transform: uppercase;
-        display: inline-block;
-        letter-spacing: 0.3px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        letter-spacing: 0.2px;
     }
-    .chip-verified { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
-    .chip-stated { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
-    .chip-inferred { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
+    .chip-verified     { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+    .chip-stated       { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
+    .chip-inferred     { background: #F5F3FF; color: #7C3AED; border: 1px solid #DDD6FE; }
     .chip-confirmation { background: #FFFBEB; color: #D97706; border: 1px solid #FDE68A; }
-    .chip-missing { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+    .chip-missing      { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
     .chip-contradicted { background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; }
 
-    /* 8. Alert Banners */
-    .banner-warning {
-        background: #FFFBEB;
-        border: 1px solid #FDE68A;
-        border-radius: 10px;
-        padding: 12px 16px;
-        color: #92400E;
-        font-size: 12px;
-        margin-bottom: 12px;
+    /* 6. Language Switcher Pill */
+    .lang-pill-container {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-bottom: 24px;
     }
-    .banner-danger {
-        background: #FEF2F2;
-        border: 1px solid #FECACA;
-        border-radius: 10px;
-        padding: 12px 16px;
-        color: #991B1B;
-        font-size: 12px;
-        margin-bottom: 12px;
+    .lang-pill {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 11.5px;
+        font-weight: 600;
+        color: #4B5563;
+        display: inline-block;
     }
-    .banner-success {
-        background: #ECFDF5;
-        border: 1px solid #A7F3D0;
-        border-radius: 10px;
-        padding: 12px 16px;
-        color: #065F46;
-        font-size: 12px;
+    .lang-pill.active {
+        background: #111827;
+        color: #FFFFFF;
+        border-color: #111827;
+    }
+
+    /* 7. Numbered Step Cards on Home Screen */
+    .home-step-card {
+        background: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 16px;
+        padding: 1.5rem;
+        text-align: center;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .home-step-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
         margin-bottom: 12px;
     }
 </style>
@@ -254,42 +232,55 @@ st.markdown("""
 
 
 # =============================================================================
-# HEADER STORY
+# INITIALIZE SESSION STATE & NAVIGATION ROUTER
 # =============================================================================
-st.markdown("""
-<div class="header-story">
-    <div class="main-title">TeraGrant — Talk. Upload. Verify. Score. Defend.</div>
-    <div class="main-subtitle">AI-Powered Multimodal Grant Evaluation & Zero-Hallucination Integrity Engine for Ethiopian SMEs</div>
-</div>
-""", unsafe_allow_html=True)
+if "page" not in st.session_state:
+    st.session_state["page"] = "home"
+if "batch_portfolio" not in st.session_state:
+    sample_path = PROJECT_ROOT / "data" / "sample_batch_12_applicants.json"
+    if sample_path.exists():
+        with open(sample_path, "r", encoding="utf-8") as f:
+            st.session_state["batch_portfolio"] = json.load(f)
+    else:
+        st.session_state["batch_portfolio"] = []
 
 
 # =============================================================================
-# SIDEBAR (STAGE MODE & DEVELOPER PANEL)
+# STEP 2: APP SHELL (FIGMA LIGHT SIDEBAR)
 # =============================================================================
 with st.sidebar:
-    st.markdown("### 🟢 Gemini Connected")
-    st.caption("Active Model: `gemini-2.5-flash` • API v1")
-    
-    st.markdown("---")
-    
-    # 1. Quick Presets for Demo / Evaluation
-    st.markdown("##### ⚡ Live Quick Presets")
-    col_pre1, col_pre2 = st.columns(2)
-    with col_pre1:
-        if st.button("🎲 Unseen Applicant", use_container_width=True, help="Loads test assets (license + workshop + voice)"):
-            st.session_state["preset_loaded"] = "unseen"
-            st.session_state["preset_time"] = time.time()
-            st.toast("Loaded Unseen Applicant test assets!")
-    with col_pre2:
-        if st.button("👩 Hiwot Impact", use_container_width=True, help="Exercises impact builder with training scenario"):
-            st.session_state["preset_loaded"] = "hiwot"
-            st.session_state["preset_time"] = time.time()
-            st.toast("Loaded Hiwot Training Initiative scenario!")
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+        <span style="font-size:22px;">🌱</span>
+        <span style="font-size:16px; font-weight:800; color:#111827;">TeraGrant Agent</span>
+    </div>
+    <div style="font-size:10.5px; color:#059669; font-weight:700; margin-bottom:16px;">
+        ● Verified Agent Active
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Navigation Buttons
+    cur_page = st.session_state.get("page", "home")
+
+    if st.button("🏠 Home", use_container_width=True, type="primary" if cur_page == "home" else "secondary"):
+        st.session_state["page"] = "home"
+        st.rerun()
+
+    if st.button("📋 My Application", use_container_width=True, type="primary" if cur_page == "my_application" else "secondary"):
+        st.session_state["page"] = "my_application"
+        st.rerun()
+
+    if st.button("👥 Batch Review", use_container_width=True, type="primary" if cur_page == "batch_review" else "secondary"):
+        st.session_state["page"] = "batch_review"
+        st.rerun()
+
+    if st.button("📁 Evidence Library", use_container_width=True, type="primary" if cur_page == "evidence_library" else "secondary"):
+        st.session_state["page"] = "evidence_library"
+        st.rerun()
 
     st.markdown("---")
 
-    # 2. Developer Mode Expander
+    # Developer Mode Expander (Collapsed)
     with st.expander("🛠 Developer Mode", expanded=False):
         env_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
         dev_api_key = st.text_input(
@@ -318,43 +309,124 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"❌ Connection Failed: {str(e)}")
 
-        st.markdown("##### 🎭 Emergency Backup")
+        st.markdown("##### ⚡ Test Presets")
+        if st.button("🎲 Unseen Applicant Test", use_container_width=True):
+            st.session_state["preset_loaded"] = "unseen"
+            st.toast("Loaded Unseen Applicant test assets!")
+
         rehearsal_toggle = st.checkbox("Enable Rehearsal Backup Mode", value=False)
         st.session_state["rehearsal_mode"] = rehearsal_toggle
 
-    # 3. AI Reasoning Boundaries Expander
-    with st.expander("🤖 AI Reasoning Boundaries", expanded=False):
+
+# =============================================================================
+# STEP 3: SCREEN S0 — RESTYLED HOME PAGE (Figma Image 11)
+# =============================================================================
+if st.session_state["page"] == "home":
+    # Language Segmented Pills (English active dark)
+    st.markdown("""
+    <div class="lang-pill-container">
+        <span class="lang-pill active">English</span>
+        <span class="lang-pill">አማርኛ</span>
+        <span class="lang-pill">Afaan Oromoo</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Hero Section
+    st.markdown("""
+    <div style="text-align:center; margin-bottom: 2.5rem;">
+        <div style="font-size: 2.5rem; font-weight: 800; color: #111827; letter-spacing: -0.8px; margin-bottom: 0.5rem; line-height: 1.2;">
+            Talk. Upload. Verify. Score.<br/>Defend.
+        </div>
+        <div style="font-size: 1.05rem; color: #6B7280; max-width: 560px; margin: 0 auto; line-height: 1.4;">
+            Turn a business story into a fundable application — without inventing facts.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 3 Numbered Step Cards (Image 11)
+    col_c1, col_c2, col_c3 = st.columns(3)
+    with col_c1:
         st.markdown("""
-        **What TeraGrant CAN Do:**
-        - 🎙️ Transcribe trilingual spoken audio (Amharic, Afaan Oromo, English)
-        - 👁️ Extract OCR metadata from paper trade licenses
-        - 🏭 Audit facility photos for physical asset corroboration
-        - ⚖️ Enforce 15-check deterministic eligibility gates and 3 instant-kill exclusion checks
-        - 🎯 Calculate weighted 100-point rubric scores across 3 track variants
-        - 📊 Detect mathematical and semantic cross-document contradictions
-        - 📈 Compute gap-to-score sensitivity & submission readiness
+        <div class="home-step-card">
+            <div class="home-step-icon" style="background:#EFF6FF; color:#2563EB;">🎙️</div>
+            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">1</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Speak</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">Tell us about your business in your own words.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_c2:
+        st.markdown("""
+        <div class="home-step-card">
+            <div class="home-step-icon" style="background:#F5F3FF; color:#7C3AED;">⬆️</div>
+            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">2</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Upload</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">Take photos of your licence and workshop.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_c3:
+        st.markdown("""
+        <div class="home-step-card">
+            <div class="home-step-icon" style="background:#ECFDF5; color:#059669;">🛡️</div>
+            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">3</div>
+            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">Verify</div>
+            <div style="font-size:12px; color:#6B7280; line-height:1.4;">We build the application and show what still needs proof.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        **What TeraGrant CANNOT Do:**
-        - ❌ Auto-tick legal declarations or bypass human verbal consent
-        - ❌ Hallucinate missing TINs, financial numbers, or demographic splits
-        - ❌ Override investment committee authority or disburse funds automatically
-        """)
+    st.write("")
+    st.write("")
+
+    # Button Row (Emerald Primary + Outline Secondary)
+    col_b1, col_b2, col_b3 = st.columns([1, 2, 1])
+    with col_b2:
+        btn_col_a, btn_col_b = st.columns(2)
+        with btn_col_a:
+            if st.button("🎙️ Start Application >", type="primary", use_container_width=True):
+                st.session_state["page"] = "my_application"
+                st.rerun()
+        with btn_col_b:
+            if st.button("👥 Reviewer Dashboard", use_container_width=True):
+                st.session_state["page"] = "batch_review"
+                st.rerun()
+
+    st.write("")
+    st.write("")
+
+    # EVIDENCE STATUS KEY (Bottom Legend exact per Figma)
+    st.markdown("""
+    <div style="margin-top: 3.5rem; text-align:center;">
+        <div style="font-size:10px; font-weight:800; color:#6B7280; letter-spacing:0.8px; margin-bottom:12px;">EVIDENCE STATUS KEY</div>
+        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:14px; font-size:11px; color:#4B5563;">
+            <span><span class="chip chip-verified">Document Verified</span> Supported by an uploaded document</span>
+            <span><span class="chip chip-stated">Applicant Stated</span> Provided by the applicant</span>
+            <span><span class="chip chip-inferred">AI Inferred</span> Inferred by AI — not independently established</span>
+            <span><span class="chip chip-confirmation">Needs Confirmation</span> Requires human confirmation</span>
+            <span><span class="chip chip-missing">Missing</span> Not yet established</span>
+            <span><span class="chip chip-contradicted">⚠️ Contradicted</span> Two sources disagree</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # =============================================================================
-# MAIN TABS (SHADCN CLEAN WORKSPACE)
+# MY APPLICATION WORKSPACE (STEP 4: DO NOT TOUCH BATCH-23 INTAKE WORKSPACE)
 # =============================================================================
-tab1, tab2, tab3 = st.tabs([
-    "🚀 1. Applicant Intake & Digital Twin",
-    "📊 2. Reviewer Batch Ranker",
-    "📜 3. Multilingual Verbal Consent",
-])
+elif st.session_state["page"] == "my_application":
+    col_hdr_l, col_hdr_r = st.columns([3, 1])
+    with col_hdr_l:
+        st.markdown("""
+        <div style="margin-bottom:0.5rem;">
+            <div style="font-size:1.6rem; font-weight:800; color:#111827;">Applicant Intake & Digital Twin Workspace</div>
+            <div style="font-size:0.9rem; color:#6B7280;">Upload voice, license, and workshop evidence to assemble your fundable application twin in real time.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_hdr_r:
+        if st.button("← Back to Home", use_container_width=True):
+            st.session_state["page"] = "home"
+            st.rerun()
 
+    st.markdown("---")
 
-# =============================================================================
-# TAB 1: APPLICANT INTAKE & DIGITAL TWIN
-# =============================================================================
-with tab1:
     col_left, col_right = st.columns([1.2, 0.8])
 
     # -------------------------------------------------------------------------
@@ -371,48 +443,43 @@ with tab1:
     with col_right:
         st.markdown("#### 📥 Multimodal Intake Dossier")
 
-        # Preset Injection Handler
+        # Preset Handler
         preset = st.session_state.get("preset_loaded")
         if preset == "unseen":
             st.info("🎲 **Unseen Test Dossier Loaded**: Almaz Spice Mill (Voice + Smudged License + Workshop Photo).")
-        elif preset == "hiwot":
-            st.info("👩 **Hiwot Training Scenario Loaded**: Exercising ImpactProtocol and milestone builder.")
 
         # STEP 1: SPEAK
         st.markdown("""
-        <div class="step-card">
-            <div class="step-title">1️⃣ 🎙️ Speak (ድምጽ ይቅረጹ / Voice Note)</div>
-            <div class="step-subtitle">Record your business story in Amharic, Afaan Oromo, or English.</div>
+        <div class="tg-card" style="padding:12px; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:700; color:#111827; margin-bottom:4px;">1️⃣ 🎙️ Speak (ድምጽ ይቅረጹ / Voice Note)</div>
+            <div style="font-size:10.5px; color:#6B7280;">Record your business story in Amharic, Afaan Oromo, or English.</div>
         </div>
         """, unsafe_allow_html=True)
         
         voice_tab1, voice_tab2 = st.tabs(["🎙️ Record Live", "📁 Upload File"])
-        uploaded_audio = None
+        active_audio_bytes = None
         with voice_tab1:
             recorded_audio = st.audio_input("Record Audio Note (ድምጽ ይቅረጹ)")
+            if recorded_audio:
+                active_audio_bytes = recorded_audio.read()
         with voice_tab2:
-            uploaded_audio_file = st.file_uploader("Upload Audio (MP3 / WAV / OGA / M4A)", type=["mp3", "wav", "oga", "ogg", "m4a"], key="audio_uploader")
+            uploaded_audio_file = st.file_uploader("Upload Audio", type=["mp3", "wav", "oga", "ogg", "m4a"], key="audio_up")
+            if uploaded_audio_file:
+                active_audio_bytes = uploaded_audio_file.read()
 
-        active_audio_bytes = None
-        active_audio_path = None
-        if recorded_audio:
-            active_audio_bytes = recorded_audio.read()
-        elif uploaded_audio_file:
-            active_audio_bytes = uploaded_audio_file.read()
-        elif preset == "unseen":
+        if preset == "unseen" and not active_audio_bytes:
             proof_mp3 = PROJECT_ROOT / "data" / "proof_voice.mp3"
             if proof_mp3.exists():
                 active_audio_bytes = proof_mp3.read_bytes()
 
         # STEP 2: TRADE LICENSE
         st.markdown("""
-        <div class="step-card">
-            <div class="step-title">2️⃣ 📄 License (የንግድ ፈቃድ / Trade License)</div>
-            <div class="step-subtitle">Upload paper trade registration certificate or business license.</div>
+        <div class="tg-card" style="padding:12px; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:700; color:#111827; margin-bottom:4px;">2️⃣ 📄 License (የንግድ ፈቃድ / Trade License)</div>
+            <div style="font-size:10.5px; color:#6B7280;">Upload paper trade registration certificate or business license.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_license = st.file_uploader("Upload License Photo", type=["jpg", "jpeg", "png"], key="lic_uploader")
-        
+        uploaded_license = st.file_uploader("Upload License Photo", type=["jpg", "jpeg", "png"], key="lic_up")
         active_license_path = None
         if uploaded_license:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_lic:
@@ -425,13 +492,12 @@ with tab1:
 
         # STEP 3: WORKSHOP PHOTO
         st.markdown("""
-        <div class="step-card">
-            <div class="step-title">3️⃣ 📸 Workshop (የስራ ቦታ ፎቶ / Facility Photo)</div>
-            <div class="step-subtitle">Upload photo of your facility, machinery, or workshop workers.</div>
+        <div class="tg-card" style="padding:12px; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:700; color:#111827; margin-bottom:4px;">3️⃣ 📸 Workshop (የስራ ቦታ ፎቶ / Facility Photo)</div>
+            <div style="font-size:10.5px; color:#6B7280;">Upload photo of your facility, machinery, or workshop workers.</div>
         </div>
         """, unsafe_allow_html=True)
-        uploaded_workshop = st.file_uploader("Upload Facility Photo", type=["jpg", "jpeg", "png"], key="work_uploader")
-
+        uploaded_workshop = st.file_uploader("Upload Facility Photo", type=["jpg", "jpeg", "png"], key="work_up")
         active_workshop_path = None
         if uploaded_workshop:
             with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_work:
@@ -442,13 +508,12 @@ with tab1:
             if dummy_work.exists():
                 active_workshop_path = str(dummy_work)
 
-        # ONE LARGE EMERALD ACTION BUTTON
+        # Action Button
         st.write("")
         trigger_intake = st.button("⚡ Analyze & Build Truth Dossier", type="primary", use_container_width=True)
 
         if trigger_intake:
             with st.spinner("🚀 Running concurrent multimodal extraction, zero-hallucination mapping, and audit checks..."):
-                # Save voice temp file if bytes exist
                 temp_voice_path = None
                 if active_audio_bytes:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp_aud:
@@ -517,42 +582,7 @@ with tab1:
                 st.session_state["digital_twin_data"] = twin_payload
                 st.rerun()
 
-        # GUIDED INTERVIEW TOGGLE BELOW
-        st.markdown("---")
-        with st.expander("🎙️ Or Start Guided 7-Question Voice Interview", expanded=False):
-            st.caption("AI asks step-by-step questions in Amharic, Afaan Oromo, or English with native audio playback.")
-            int_lang = st.selectbox("Interview Language", ["English", "Amharic", "Afaan Oromo"], index=0, key="int_lang")
-            
-            step_idx = st.session_state.get("interview_step_idx", 0)
-            if step_idx < len(INTERVIEW_STEPS):
-                cur_step = INTERVIEW_STEPS[step_idx]
-                q_text = cur_step.question_en if int_lang == "English" else (cur_step.question_am if int_lang == "Amharic" else cur_step.question_or)
-                
-                st.markdown(f"**Step {step_idx + 1} of {len(INTERVIEW_STEPS)}: {cur_step.step_id}**")
-                st.info(f"🗣️ **AI Asks:** {q_text}")
-                
-                # Autoplay Audio via gTTS
-                try:
-                    aud_bytes = generate_speech_audio(q_text, lang=int_lang)
-                    st.audio(aud_bytes, format="audio/mp3", autoplay=True)
-                except Exception:
-                    pass
-
-                ans_audio = st.audio_input(f"Your Answer for {cur_step.step_id}", key=f"int_ans_{cur_step.step_id}")
-                if st.button("Submit Step Answer", key=f"btn_step_{cur_step.step_id}"):
-                    st.session_state["interview_step_idx"] = step_idx + 1
-                    st.toast(f"Recorded step {cur_step.step_id}!")
-                    st.rerun()
-            else:
-                st.success("✅ Guided Interview Complete! Click 'Analyze & Build Truth Dossier' above to process.")
-                if st.button("Reset Interview"):
-                    st.session_state["interview_step_idx"] = 0
-                    st.rerun()
-
-
-    # -------------------------------------------------------------------------
-    # AFTER SCORING TRANSPARENCY PANEL (FULL WIDTH)
-    # -------------------------------------------------------------------------
+    # AFTER SCORING TRANSPARENCY PANEL
     if "score_res" in st.session_state:
         st.markdown("---")
         st.markdown("### 📊 Transparency & Evaluation Truth Center")
@@ -571,20 +601,20 @@ with tab1:
         with col_t2:
             st.metric("Submission Readiness", f"{readiness_res['readiness_pct']}%", delta="100% Needed to Submit" if not readiness_res["is_ready"] else "Ready for Submission")
         with col_t3:
-            st.metric("Potential Score (Cap 100)", f"{sensitivity_res['potential_total']} / 100 [POTENTIAL]", delta=f"+{sensitivity_res['total_recoverable_points']} pts Recoverable")
+            st.metric("Potential Score", f"{sensitivity_res['potential_total']} / 100 [POTENTIAL]", delta=f"+{sensitivity_res['total_recoverable_points']} pts Recoverable")
 
-        # 1. SUBMISSION READINESS SCREEN
+        # Submission Readiness Screen
         st.markdown("#### 🚦 Submission Readiness & Gate Status")
         st.progress(readiness_res["readiness_pct"] / 100.0)
         
         if readiness_res["is_ready"]:
-            st.markdown("""<div class="banner-success"><b>✅ Application Ready for Submission</b>: All mandatory eligibility gates passed and zero critical blockers exist.</div>""", unsafe_allow_html=True)
+            st.success("✅ Application Ready for Submission: All mandatory eligibility gates passed.")
         else:
-            st.markdown(f"""<div class="banner-danger"><b>❌ Action Required ({len(readiness_res['blockers'])} Blockers)</b>: Fix the critical items below before submitting to the investment committee.</div>""", unsafe_allow_html=True)
+            st.error(f"❌ Action Required ({len(readiness_res['blockers'])} Blockers): Fix the items below before submission.")
             for b in readiness_res["blockers"]:
                 st.markdown(f"- 🔴 **{b}**")
 
-        # 2. GRID COMPARISON TABLE
+        # Grid Comparison Table
         st.markdown("#### ⚖️ Grid Variant Comparison & Routing Rationale")
         col_g1, col_g2 = st.columns([1, 2])
         with col_g1:
@@ -595,52 +625,29 @@ with tab1:
         with col_g2:
             st.info(f"**Assigned Recommendation**: `{variants_comp['recommended_variant']}`\n\n{variants_comp['routing_reason']}")
 
-        # 3. WHAT WOULD RAISE MY SCORE (SENSITIVITY ANALYSIS)
-        st.markdown("#### 📈 What Would Raise My Score? (Gap Sensitivity)")
-        st.caption("Resolving missing documentation unlocks recoverable evaluation points across linked criteria:")
-        for s in sensitivity_res["sensitivities"]:
-            badge_class = "chip-missing" if s["priority"] == "HIGH" else "chip-confirmation"
-            st.markdown(f"""
-            <div style="background:#FFFFFF; border:1px solid #E5E7EB; border-radius:10px; padding:10px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <b><code>{s['gap_field']}</code></b> &nbsp;<span class="chip {badge_class}">{s['priority']} PRIORITY</span><br/>
-                    <small style="color:#6B7280;">Action Required From: <b>{s['required_from']}</b> • Impacts: <b>{s['criterion']}</b></small>
-                </div>
-                <div style="text-align:right;">
-                    <span style="font-size:15px; font-weight:800; color:#059669;">+{s['recoverable_points']} pts</span><br/>
-                    <small style="color:#6B7280;">Recoverable</small>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        # 4. 100-POINT CRITERIA BREAKDOWN
-        with st.expander("📊 View Detailed 100-Point Scoring Rubric Breakdown", expanded=False):
-            for c_score in score_res.criteria_scores:
-                col_c1, col_c2 = st.columns([4, 1])
-                with col_c1:
-                    st.markdown(f"**{c_score.criterion.value.replace('_', ' ')}** ({c_score.awarded_points} / {c_score.max_points} pts)")
-                    prog = c_score.awarded_points / c_score.max_points if c_score.max_points > 0 else 0
-                    st.progress(prog)
-                    st.caption(c_score.reasoning)
-                with col_c2:
-                    st.metric("Awarded", f"{c_score.awarded_points} / {c_score.max_points}")
-                st.write("")
-
-        # 5. COMMITTEE EXECUTIVE DEFENSE
-        st.markdown("#### 📝 Investment Committee Executive Defense")
-        st.info(score_res.reviewer_summary)
-
 
 # =============================================================================
-# TAB 2: REVIEWER PATH (BATCH PORTFOLIO RANKER)
+# BATCH REVIEW WORKSPACE (STEP 4: DO NOT TOUCH BATCH-23 REVIEWER TABLE)
 # =============================================================================
-with tab2:
-    st.markdown('<div class="main-header">Reviewer Path: Batch Ranking & Portfolio Shortlist</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Reviewer committee workspace for evaluating and defending batches of scored SME proposals.</div>', unsafe_allow_html=True)
+elif st.session_state["page"] == "batch_review":
+    col_rh1, col_rh2 = st.columns([3, 1])
+    with col_rh1:
+        st.markdown("""
+        <div style="margin-bottom:0.5rem;">
+            <div style="font-size:1.6rem; font-weight:800; color:#111827;">Reviewer Batch Ranking & Portfolio Defense</div>
+            <div style="font-size:0.9rem; color:#6B7280;">Reviewer committee workspace for evaluating and defending batches of scored SME proposals.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_rh2:
+        if st.button("← Back to Home", use_container_width=True):
+            st.session_state["page"] = "home"
+            st.rerun()
+
+    st.markdown("---")
 
     col_b1, col_b2 = st.columns([2, 1])
     with col_b1:
-        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="reviewer_batch_file")
+        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up")
     with col_b2:
         st.markdown("##### ⚡ Quick Load Presets")
         load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True)
@@ -747,70 +754,25 @@ with tab2:
 
 
 # =============================================================================
-# TAB 3: CONSENT DIARY & MULTILINGUAL EXPLAINER
+# EVIDENCE LIBRARY (PROVENANCE TABLE)
 # =============================================================================
-with tab3:
-    st.markdown('<div class="main-header">Multilingual Verbal Consent & Audit Diary</div>', unsafe_allow_html=True)
-    st.markdown("""<div class="banner-danger"><b>⚠️ MANDATORY RULE</b>: Declarations are <b>NEVER auto-ticked</b>. Informed verbal consent is recorded and audited individually per covenant.</div>""", unsafe_allow_html=True)
+elif st.session_state["page"] == "evidence_library":
+    col_eh1, col_eh2 = st.columns([3, 1])
+    with col_eh1:
+        st.markdown("### 📁 Multimodal Evidence & Provenance Library")
+        st.caption("Verifiable audit trail tracking every extracted claim, OCR token, and confidence metric.")
+    with col_eh2:
+        if st.button("← Back to Home", use_container_width=True):
+            st.session_state["page"] = "home"
+            st.rerun()
 
-    col_cs1, col_cs2 = st.columns([1, 1])
-    with col_cs1:
-        st.markdown("#### 🎙️ Verbal Explanation Generator")
-        c_lang = st.selectbox("Applicant Spoken Language", ["Amharic", "Afaan Oromo", "English"], index=0, key="c_lang_sel")
-        
-        if st.button("Generate Verbal Reading Script", type="primary", use_container_width=True):
-            with st.spinner("Generating plain-language verbal scripts..."):
-                cur_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
-                pkg = generate_consent_package(detected_language=c_lang, api_key=cur_key)
-                st.session_state["consent_pkg"] = pkg
-                st.rerun()
+    st.markdown("---")
 
-        if "consent_pkg" in st.session_state:
-            pkg = st.session_state["consent_pkg"]
-            for i, exp in enumerate(pkg.explanations, 1):
-                st.markdown(f"**{i}. {exp.declaration_id}**")
-                st.info(f"🗣️ **Spoken Explanation:** {exp.translated_simple_explanation}\n\n❓ **Consent Question:** {exp.verbal_consent_question}")
-
-    with col_cs2:
-        st.markdown("#### 📋 Consent Audit Diary")
-        
-        # Test Simulation Controls
-        st.markdown("##### 🧪 Simulate Verbal Consent Input")
-        sim_decl = st.selectbox("Select Declaration", ["declaration_05_anti_bribery_corruption", "declaration_08_child_labor_prevention", "declaration_02_truthful_information"])
-        sim_resp = st.text_input("Spoken Response Transcript", value="አዎ እስማማለሁ (Yes, I agree)")
-        
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("✅ Record Verified YES", use_container_width=True):
-                if "consent_diary" not in st.session_state:
-                    st.session_state["consent_diary"] = []
-                rec = record_consent(sim_decl, c_lang, True, sim_resp)
-                st.session_state["consent_diary"].append(rec)
-                st.toast(f"Recorded YES consent for {sim_decl}!")
-                st.rerun()
-        with col_btn2:
-            if st.button("🚫 Revoke Consent", use_container_width=True):
-                if "consent_diary" in st.session_state:
-                    for idx, r in enumerate(st.session_state["consent_diary"]):
-                        if r.declaration_id == sim_decl and r.status == ConsentStatus.ACTIVE:
-                            st.session_state["consent_diary"][idx] = revoke_consent(r)
-                            st.toast(f"Revoked consent for {sim_decl}!")
-                            st.rerun()
-
-        # Render Diary Table
-        diary = st.session_state.get("consent_diary", [])
-        if diary:
-            st.markdown("##### Recorded Audit Trail")
-            table_data = [
-                {
-                    "Declaration": r.declaration_id,
-                    "Language": r.language,
-                    "Verdict": r.response_verdict.value,
-                    "Status": r.status.value,
-                    "Timestamp (UTC)": r.timestamp[:19],
-                }
-                for r in diary
-            ]
-            st.table(table_data)
-        else:
-            st.caption("No verbal consent records registered yet in this session.")
+    table_data = [
+        {"Field": "business_info.company_name", "Value": "Wolde Spice Mill", "Status": "DOCUMENT_VERIFIED", "Source": "license", "Confidence": "98%", "Evidence": "Trade License OCR ARZ-2019-04471"},
+        {"Field": "business_info.location", "Value": "Bekoji Tera, Arsi Zone", "Status": "DOCUMENT_VERIFIED", "Source": "license", "Confidence": "95%", "Evidence": "Registration Address"},
+        {"Field": "employment.total_staff", "Value": "8 Employees", "Status": "APPLICANT_STATED", "Source": "voice", "Confidence": "90%", "Evidence": "Voice Note verbatim speech"},
+        {"Field": "financials.annual_turnover_etb", "Value": "480,000 ETB", "Status": "APPLICANT_STATED", "Source": "voice", "Confidence": "82%", "Evidence": "Spoken revenue figures"},
+        {"Field": "business_info.years_in_operation", "Value": "7 years", "Status": "CONTRADICTED", "Source": "license vs voice", "Confidence": "60%", "Evidence": "2019 license vs 3yr claim"},
+    ]
+    st.table(table_data)
