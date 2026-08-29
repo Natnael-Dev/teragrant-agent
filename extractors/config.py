@@ -15,8 +15,13 @@ from google.genai import types
 # Load environment variables from .env file
 load_dotenv()
 
-# Fallback chain for automatic failover when a model returns 404 / retired
-MODEL_FALLBACK_CHAIN: List[str] = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"]
+# Fallback chain for automatic failover when a model returns 404 / quota / retired
+MODEL_FALLBACK_CHAIN: List[str] = [
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-pro",
+    "gemini-1.5-pro-latest",
+]
 
 
 def get_api_key() -> str:
@@ -109,6 +114,7 @@ def call_gemini_with_fallback(
     """
     Executes client.models.generate_content with smart error-class failover:
     - Overrides legacy/unsupported model names to gemini-1.5-flash.
+    - Surfaces exact intermediate errors per candidate model.
     - If it's a network error, retries ONCE on the SAME model, then moves to next.
     - If it's a 404 / 429 / not found, walks the MODEL_FALLBACK_CHAIN candidates.
 
@@ -121,6 +127,8 @@ def call_gemini_with_fallback(
     Returns:
         Tuple[Any, str]: (response object, model_name_used)
     """
+    import json
+
     if model and ("2.0" in str(model) or "3.6" in str(model)):
         model = "gemini-1.5-flash"
         
@@ -129,7 +137,7 @@ def call_gemini_with_fallback(
         if m not in candidates:
             candidates.append(m)
 
-    last_err: Optional[Exception] = None
+    errors = {}
     for candidate in candidates:
         try:
             # Force string conversion of model name
@@ -140,7 +148,7 @@ def call_gemini_with_fallback(
             )
             return response, candidate
         except Exception as err:
-            last_err = err
+            errors[str(candidate)] = str(err)
             err_str = str(err).lower()
 
             # If it's a network error, retry ONCE on the SAME model, then move to next
@@ -153,12 +161,13 @@ def call_gemini_with_fallback(
                         config=config,
                     )
                     return retry_resp, candidate
-                except Exception:
+                except Exception as retry_err:
+                    errors[f"{candidate}_retry"] = str(retry_err)
                     continue  # Move to next model in chain
 
             # If it's a 404 or 429 or not found, just log and move to next model
-            if "404" in err_str or "429" in err_str or "not found" in err_str or "is not supported" in err_str or "quota" in err_str:
+            if "404" in err_str or "429" in err_str or "not found" in err_str or "is not supported" in err_str or "quota" in err_str or "deprecated" in err_str:
                 continue
 
     # If we get here, ALL models failed.
-    raise RuntimeError(f"All models failed. Last error: {str(last_err)}")
+    raise RuntimeError(f"All models failed. Details: {json.dumps(errors)}")

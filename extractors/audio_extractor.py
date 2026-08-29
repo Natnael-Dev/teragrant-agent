@@ -15,17 +15,23 @@ from .config import get_gemini_client, call_gemini_with_fallback
 from .schemas import AudioTranscriptExtraction
 
 
-AUDIO_SYSTEM_PROMPT = """You are an expert multilingual audio transcriber and SME grant analyst specializing in Ethiopian and East African languages (Amharic, Afaan Oromo, English, Tigrinya, Somali).
+AUDIO_SYSTEM_PROMPT = """You are an expert multilingual transcription and data extraction officer.
+You must perform your task in TWO STRICT STEPS.
 
-Your objective is to:
-1. Provide an accurate transcription of the audio.
-2. Identify the language spoken.
-3. Extract core factual information explicitly mentioned by the speaker (business name, employee count, product type, location, financial figures, impact goals).
+STEP 1: VERBATIM TRANSCRIPTION
+Transcribe the audio EXACTLY as spoken, word-for-word, in the original language (Amharic, Afaan Oromo, or English). Do not summarize. Do not correct grammar. If a word is unclear, use [unclear].
 
-CRITICAL ANTI-HALLUCINATION RULES:
-1. ONLY extract numbers, headcount, and names that are explicitly spoken.
-2. Do NOT invent missing financial figures or employee statistics.
-3. If a field was not mentioned in the audio, return null for that field."""
+STEP 2: FACT EXTRACTION (BASED ONLY ON STEP 1)
+Read your transcript from Step 1. Extract the following facts ONLY if they are explicitly stated in the transcript. NEVER guess or infer.
+- business_name
+- employee_count (integer)
+- female_staff (integer)
+- product_type
+- location
+- financial_figures (list of strings with currency)
+
+OUTPUT FORMAT:
+Return ONLY a valid JSON object matching the AudioTranscriptExtraction schema. The 'transcript' field MUST contain the exact output of Step 1."""
 
 
 def extract_audio_story(

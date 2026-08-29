@@ -282,3 +282,23 @@ def test_call_gemini_with_fallback_api_404_walks_chain():
     assert model_used == MODEL_FALLBACK_CHAIN[1]
     assert mock_client.models.generate_content.call_count == 2
 
+
+def test_call_gemini_with_fallback_surfaces_all_model_errors():
+    """Verify that when all models fail, a JSON dict with each candidate's error is surfaced."""
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED Quota exceeded")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        call_gemini_with_fallback(
+            client=mock_client,
+            model=None,
+            contents="test content",
+            config=None,
+        )
+
+    err_str = str(exc_info.value)
+    assert "All models failed. Details:" in err_str
+    assert "gemini-1.5-flash" in err_str
+    assert "429 RESOURCE_EXHAUSTED" in err_str
+
+

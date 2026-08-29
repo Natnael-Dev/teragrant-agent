@@ -147,7 +147,7 @@ with st.sidebar:
 
     model_choice = st.selectbox(
         "Gemini Foundation Model",
-        options=["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"],
+        options=["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-1.5-pro-latest"],
         index=0,
         help="Select the Gemini multimodal reasoning model (defaults to gemini-1.5-flash with automatic failover)."
     )
