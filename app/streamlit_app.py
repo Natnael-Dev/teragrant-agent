@@ -62,7 +62,7 @@ from agents.scorer_agent import score_application
 from agents.contradiction_agent import detect_contradictions
 from agents.batch_ranker_agent import rank_batch
 from agents.declaration_explainer_agent import generate_consent_package
-from app.digital_twin import render_giz_form
+from app.digital_twin import render_giz_form, convert_to_serializable
 from app.heartbeat_ui import render_heartbeat
 from app.rehearsal_data import get_almaz_scenario, get_nahom_scenario
 
@@ -207,6 +207,16 @@ with tab1:
                 st.session_state["latest_pack"] = pack
                 st.session_state["latest_score"] = scoring_res
                 st.session_state["latest_contradictions"] = contras
+                st.session_state["latest_audio_transcript"] = AudioTranscriptExtraction(
+                    transcript="My name is Almaz Bekele. I run a spice mill in Bahir Dar with 8 employees. We produce fine ground berbere and shiro.",
+                    detected_language="Amharic",
+                    business_name="Almaz Spice Mill",
+                    employee_count=8,
+                    product_type="Ground Spices & Berbere",
+                    location="Bahir Dar",
+                    financial_figures=["450,000 Birr"],
+                    impact_summary="Spice processing cooperative seeking commercial pulverizer."
+                )
                 st.session_state["is_active"] = False
                 st.rerun()
         with col_r2:
@@ -216,6 +226,16 @@ with tab1:
                 st.session_state["latest_pack"] = pack
                 st.session_state["latest_score"] = scoring_res
                 st.session_state["latest_contradictions"] = contras
+                st.session_state["latest_audio_transcript"] = AudioTranscriptExtraction(
+                    transcript="My name is Nahom Tadesse. I operate Nahom Solar Tech solutions in Hawassa. We assemble solar charge controllers with 12 technicians.",
+                    detected_language="English",
+                    business_name="Nahom Solar Tech Solutions",
+                    employee_count=12,
+                    product_type="Solar Charge Controllers",
+                    location="Hawassa",
+                    financial_figures=["850,000 Birr"],
+                    impact_summary="Clean-tech hardware assembly replacing imported solar accessories."
+                )
                 st.session_state["is_active"] = False
                 st.rerun()
         st.divider()
@@ -276,7 +296,7 @@ with tab1:
         process_btn = st.button("🚀 Process Intake & Fill Form", type="primary", use_container_width=True)
 
     # -------------------------------------------------------------------------
-    # PIPELINE EXECUTION (STRICT ZERO-FAKE-DATA IN LIVE MODE)
+    # PIPELINE EXECUTION (STRICT ZERO-FAKE-DATA IN LIVE MODE + STEP STATUS)
     # -------------------------------------------------------------------------
     if process_btn and is_live_mode:
         current_key = os.getenv("GEMINI_API_KEY")
@@ -299,16 +319,23 @@ with tab1:
 
         st.session_state["is_active"] = True
 
-        with st.spinner("🤖 Multimodal Agent listening, transcribing audio, running vision OCR, and populating Digital Twin Form..."):
+        with st.status("🤖 Processing SME Application Intake...", expanded=True) as status_box:
             try:
-                # 1. Write Audio bytes to temp file and extract
+                # -------------------------------------------------------------
+                # STEP 1: Transcribe Voice Note
+                # -------------------------------------------------------------
+                st.write("🎙️ **Step 1/4: Transcribing Voice Note & Extracting Business Narrative...**")
                 with tempfile.NamedTemporaryFile(suffix=audio_ext, delete=False) as tmp_aud:
                     tmp_aud.write(audio_bytes)
                     tmp_aud_path = tmp_aud.name
 
                 audio_data = extract_audio_story(audio_path=tmp_aud_path, model=model_choice)
+                st.session_state["latest_audio_transcript"] = audio_data
 
-                # 2. Vision OCR extraction if license uploaded
+                # -------------------------------------------------------------
+                # STEP 2: Read Trade License & Workshop Photo
+                # -------------------------------------------------------------
+                st.write("👁️ **Step 2/4: Reading Trade License & Analyzing Facility Assets...**")
                 if uploaded_license:
                     with tempfile.NamedTemporaryFile(suffix=Path(uploaded_license.name).suffix, delete=False) as tmp_img:
                         tmp_img.write(uploaded_license.read())
@@ -320,7 +347,6 @@ with tab1:
                         extraction_notes="No official commercial license document uploaded."
                     )
 
-                # 3. Workshop extraction if workshop photo uploaded
                 workshop_data = None
                 if uploaded_workshop:
                     with tempfile.NamedTemporaryFile(suffix=Path(uploaded_workshop.name).suffix, delete=False) as tmp_ws:
@@ -328,7 +354,10 @@ with tab1:
                         tmp_ws_path = tmp_ws.name
                     workshop_data = extract_workshop_data(image_path=tmp_ws_path, model=model_choice)
 
-                # 4. Multimodal Mapping & Gap Analysis
+                # -------------------------------------------------------------
+                # STEP 3: Multimodal Mapping & Gap Analysis
+                # -------------------------------------------------------------
+                st.write("📋 **Step 3/4: Mapping to Official GIZ Form & Flagging Information Gaps...**")
                 pack = generate_application_pack(
                     license_data=license_data,
                     audio_data=audio_data,
@@ -336,26 +365,26 @@ with tab1:
                     model=model_choice
                 )
 
-                # 5. Deterministic Eligibility Gate (Pure Python)
+                # -------------------------------------------------------------
+                # STEP 4: Eligibility Gate, Router & 100-Point Scorer
+                # -------------------------------------------------------------
+                st.write("⚖️ **Step 4/4: Running 15-Point Eligibility Gate, Grid Router & 100-Point Scorer...**")
                 gate = run_eligibility_gate(pack.application)
 
-                # 6. Forensic Contradiction Detection (Cross-checks photo vs declared staff)
                 contradictions = detect_contradictions(
                     pack=pack,
                     workshop_data=workshop_data,
                     model=model_choice
                 )
 
-                # 7. Grid Track Router
                 if pack.application and pack.impact:
                     grid_variant = route_to_grid_variant(pack.application, pack.impact, model=model_choice)
                 else:
                     grid_variant = GridVariant.GENERAL_SME
 
-                # 8. 100-Point Reviewer Scorer
                 scoring_result = score_application(pack=pack, variant=grid_variant, model=model_choice)
 
-                # 9. Map purely real extracted data to Digital Twin Form
+                # Map real extracted data to Digital Twin Form
                 app_data = pack.application
                 imp_data = pack.impact
                 b_info = app_data.business_info if app_data else None
@@ -383,7 +412,7 @@ with tab1:
                 st.session_state["latest_contradictions"] = contradictions
                 st.session_state["is_active"] = False
 
-                st.success("✅ Real Intake Processed Successfully! Form populated with verified live data.")
+                status_box.update(label="✅ Application Processed Successfully!", state="complete", expanded=False)
                 st.rerun()
 
             except Exception as e:
@@ -393,12 +422,29 @@ with tab1:
                 st.session_state["latest_score"] = None
                 st.session_state["latest_contradictions"] = []
                 st.session_state["is_active"] = False
+                status_box.update(label=f"❌ Live API Failed: {str(e)}", state="error", expanded=True)
                 st.error(f"Live API failed: {str(e)}. No fake data shown in Live Mode.")
 
     # -------------------------------------------------------------------------
     # LEFT COLUMN: DIGITAL TWIN FORM & POST-EVALUATION METRICS
     # -------------------------------------------------------------------------
     with col_left:
+        # Debug Expander: Raw Audio Transcript
+        if st.session_state.get("latest_audio_transcript"):
+            raw_aud: AudioTranscriptExtraction = st.session_state["latest_audio_transcript"]
+            with st.expander("🔍 Debug: Raw AI Transcript & Audio Extraction", expanded=False):
+                st.markdown(f"**🗣️ Spoken Language:** `{raw_aud.detected_language}`")
+                st.markdown(f"**📝 Verbatim Transcript:**\n> *\"{raw_aud.transcript}\"*")
+                col_d1, col_d2 = st.columns(2)
+                with col_d1:
+                    st.markdown(f"- **Business Name:** `{raw_aud.business_name}`")
+                    st.markdown(f"- **Headcount:** `{raw_aud.employee_count}`")
+                    st.markdown(f"- **Product:** `{raw_aud.product_type}`")
+                with col_d2:
+                    st.markdown(f"- **Location:** `{raw_aud.location}`")
+                    st.markdown(f"- **Financials:** `{raw_aud.financial_figures}`")
+                    st.markdown(f"- **Impact Summary:** `{raw_aud.impact_summary}`")
+
         st.markdown("### 📋 Official GIZ/Sequa Application Form (Digital Twin)")
         st.caption("Live HTML/JS replica of the official SME Support Scheme grant form. Fields update dynamically in real-time.")
 

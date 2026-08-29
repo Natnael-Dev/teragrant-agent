@@ -4,6 +4,7 @@ Transcribes and extracts business narrative facts from spoken audio in Amharic, 
 """
 
 import json
+import mimetypes
 from pathlib import Path
 from typing import Optional, Any
 from pydantic import ValidationError
@@ -35,6 +36,7 @@ def extract_audio_story(
 ) -> AudioTranscriptExtraction:
     """
     Transcribes audio and extracts structured business facts from the spoken voice note.
+    Raises RuntimeError on failed extraction to prevent silent empty intake.
     """
     file_path = Path(audio_path)
     if not file_path.exists():
@@ -43,16 +45,20 @@ def extract_audio_story(
     with open(file_path, "rb") as f:
         audio_bytes = f.read()
 
+    if not audio_bytes:
+        raise ValueError(f"Audio file at {audio_path} is empty (0 bytes).")
+
     ext = file_path.suffix.lower()
-    mime_type_map = {
-        ".mp3": "audio/mp3",
+    mime_map = {
+        ".mp3": "audio/mpeg",
         ".wav": "audio/wav",
-        ".m4a": "audio/m4a",
+        ".m4a": "audio/mp4",
         ".ogg": "audio/ogg",
         ".oga": "audio/ogg",
         ".webm": "audio/webm",
     }
-    mime_type = mime_type_map.get(ext, "audio/mp3")
+    guessed_type, _ = mimetypes.guess_type(str(file_path))
+    mime_type = mime_map.get(ext) or guessed_type or "audio/mpeg"
 
     ai_client = client or get_gemini_client(api_key=api_key)
 
@@ -79,18 +85,10 @@ def extract_audio_story(
         )
         raw_text = response.text if response and hasattr(response, "text") else ""
     except Exception as err:
-        return AudioTranscriptExtraction(
-            transcript="",
-            detected_language="Unknown",
-            impact_summary=f"Audio extraction error: {str(err)}"
-        )
+        raise RuntimeError(f"Audio transcription API failed ({mime_type}): {str(err)}") from err
 
-    if not raw_text:
-        return AudioTranscriptExtraction(
-            transcript="",
-            detected_language="Unknown",
-            impact_summary="Empty response received from audio model."
-        )
+    if not raw_text or not raw_text.strip():
+        raise RuntimeError(f"Gemini returned an empty transcription for {file_path.name} ({mime_type}).")
 
     try:
         return AudioTranscriptExtraction.model_validate_json(raw_text)
@@ -110,9 +108,5 @@ def extract_audio_story(
             try:
                 data = json.loads(raw_text)
                 return AudioTranscriptExtraction.model_validate(data)
-            except Exception:
-                return AudioTranscriptExtraction(
-                    transcript=raw_text[:200],
-                    detected_language="Unknown",
-                    impact_summary="Failed to parse structured audio output."
-                )
+            except Exception as final_err:
+                raise RuntimeError(f"Failed to parse structured audio output: {str(final_err)}. Raw text: {raw_text[:200]}") from final_err

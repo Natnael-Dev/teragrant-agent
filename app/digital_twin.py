@@ -6,7 +6,28 @@ Updates dynamically via JavaScript injection without Streamlit widget flickering
 
 import json
 from typing import Dict, Any, Optional
+from enum import Enum
 import streamlit.components.v1 as components
+
+
+def convert_to_serializable(obj: Any) -> Any:
+    """
+    Recursively converts Pydantic models, Enums, sets, and custom objects
+    into JSON-serializable Python primitive types (dict, list, str, int, float, bool, None).
+    """
+    if obj is None:
+        return None
+    if hasattr(obj, "model_dump"):
+        return convert_to_serializable(obj.model_dump())
+    if hasattr(obj, "dict"):
+        return convert_to_serializable(obj.dict())
+    if isinstance(obj, Enum):
+        return obj.value
+    if isinstance(obj, dict):
+        return {str(k): convert_to_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [convert_to_serializable(item) for item in obj]
+    return obj
 
 
 def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int = 750):
@@ -19,8 +40,9 @@ def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int =
         session_data: Dictionary containing extracted field values and identified gap keys.
         height: Height of the component in pixels.
     """
-    data = session_data or {}
-    payload_json = json.dumps(data, ensure_ascii=False)
+    raw_data = session_data or {}
+    safe_data = convert_to_serializable(raw_data)
+    payload_json = json.dumps(safe_data, ensure_ascii=False, default=str)
 
     html_content = f"""
     <!DOCTYPE html>
@@ -250,7 +272,6 @@ def render_giz_form(session_data: Optional[Dict[str, Any]] = None, height: int =
 
             function populateForm(data) {{
                 if (!data || Object.keys(data).length === 0) {{
-                    // Pristine empty state
                     return;
                 }}
 
