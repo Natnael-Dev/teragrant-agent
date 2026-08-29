@@ -1,0 +1,29 @@
+{
+  "project_title": "Solar-Powered Cold Chain Logistics for Smallholder Horticulturalists",
+  "location": "Hawassa and Sidama Region, Ethiopia",
+  "target_beneficiaries": 1500,
+  "etb_financial_target": 3500000.0,
+  "sector": "Agri-Tech & Clean Energy",
+  "sdgs": [
+    "SDG 2: Zero Hunger",
+    "SDG 7: Affordable and Clean Energy",
+    "SDG 8: Decent Work and Economic Growth",
+    "SDG 13: Climate Action"
+  ],
+  "milestones": [
+    {
+      "milestone_id": "M1",
+      "title": "Procurement of 5 Solar Cool Hub Units",
+      "description": "Procure and clear customs for high-efficiency solar cooling equipment.",
+      "target_month": 3,
+      "verification_evidence": "Customs clearance certificate and supplier invoice matching bill of quantities."
+    },
+    {
+      "milestone_id": "M2",
+      "title": "Farmer Cooperative Onboarding & Cold Storage Commissioning",
+      "description": "Commission cooling hubs and train 300 women cooperative farmers in cold-chain handling.",
+      "target_month": 6,
+      "verification_evidence": "Signed commissioning logbook and stamped training attendance roster."
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "business_info": {
+    "business_name": "Abyssinia Agro-Processing PLC",
+    "tin_number": "0012345678",
+    "location": "Bishoftu, Oromia Region, Ethiopia",
+    "sector": "Agri-Processing & Food Manufacturing",
+    "years_in_operation": 4,
+    "ownership_structure": "Private Limited Company (PLC)",
+    "female_ownership_percentage": 50.0
+  },
+  "employment": {
+    "total_staff": 25,
+    "gender_split": {
+      "male": 12,
+      "female": 13,
+      "other": 0
+    },
+    "age_split": {
+      "youth_18_29": 15,
+      "adults_30_50": 8,
+      "seniors_above_50": 2
+    }
+  },
+  "financials": {
+    "sales_history": [
+      {
+        "year": 2022,
+        "revenue_etb": 1500000.0,
+        "gross_profit_etb": 450000.0,
+        "net_profit_etb": 200000.0
+      },
+      {
+        "year": 2023,
+        "revenue_etb": 2800000.0,
+        "gross_profit_etb": 890000.0,
+        "net_profit_etb": 410000.0
+      },
+      {
+        "year": 2024,
+        "revenue_etb": 4200000.0,
+        "gross_profit_etb": 1300000.0,
+        "net_profit_etb": 650000.0
+      }
+    ],
+    "machinery_list": [
+      {
+        "name": "Industrial Grain De-huller & Milling Line",
+        "quantity": 2,
+        "estimated_value_etb": 1200000.0,
+        "condition": "Operational",
+        "acquisition_year": 2022
+      }
+    ]
+  },
+  "organogram": [
+    {
+      "role_title": "Managing Director",
+      "holder_name": "Tigist Alemu",
+      "reports_to": null,
+      "department": "Executive",
+      "responsibilities": ["Overall strategic direction", "Grant oversight"]
+    },
+    {
+      "role_title": "Operations Manager",
+      "holder_name": "Dawit Bekele",
+      "reports_to": "Managing Director",
+      "department": "Production",
+      "responsibilities": ["Plant operations", "Supply chain management"]
+    }
+  ],
+  "declarations": {
+    "declaration_01_legal_compliance": false,
+    "declaration_02_truthful_information": false,
+    "declaration_03_no_conflict_of_interest": false,
+    "declaration_04_no_double_funding": false,
+    "declaration_05_anti_bribery_corruption": false,
+    "declaration_06_environmental_compliance": false,
+    "declaration_07_fair_labor_standards": false,
+    "declaration_08_child_labor_prevention": false,
+    "declaration_09_tax_compliance": false,
+    "declaration_10_safeguarding_policy": false,
+    "declaration_11_data_privacy_consent": false,
+    "declaration_12_financial_record_access": false,
+    "declaration_13_fund_utilization_commitment": false,
+    "declaration_14_regular_reporting_agreement": false,
+    "declaration_15_repayment_on_misuse": false
+  },
+  "exclusion_factors": {
+    "bankruptcy_or_insolvency": false,
+    "sanctions_or_criminal_convictions": false,
+    "prohibited_activities": false
+  }
+}

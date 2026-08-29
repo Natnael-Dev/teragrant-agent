@@ -1,0 +1,47 @@
+# Environment variables & secrets
+.env
+.env.*
+*.env
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE & editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Large media / dummy demo files
+data/*.mp3
+data/*.wav
+data/*.m4a
+data/*.ogg
+data/*.jpg
+data/*.jpeg
+data/*.png
+data/*.webp
+
+# OS generated files
+.DS_Store
+Thumbs.db

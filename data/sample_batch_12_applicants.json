@@ -1,0 +1,172 @@
+[
+  {
+    "business_name": "Abyssinia Solar Technologies PLC",
+    "sector": "Renewable Energy & Off-Grid Hardware",
+    "location": "Mekelle & Adigrat, Tigray",
+    "total_score": 93,
+    "grid_variant": "INNOVATION_TECH",
+    "is_eligible": true,
+    "female_ownership_percentage": 50.0,
+    "total_staff": 18,
+    "requested_etb": 4500000.0,
+    "reviewer_summary": "Pioneering domestic assembly of modular solar inverters for rural health clinics. High technical readiness and verified local sheet-metal supply chain in Tigray.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Tana Organic Honey & Wax Export",
+    "sector": "Agro-Processing & Apiculture",
+    "location": "Bahir Dar, Amhara Region",
+    "total_score": 89,
+    "grid_variant": "WOMEN_YOUTH_LED",
+    "is_eligible": true,
+    "female_ownership_percentage": 70.0,
+    "total_staff": 32,
+    "requested_etb": 3200000.0,
+    "reviewer_summary": "Women-led cooperative aggregator with organic EU certification. High direct impact on 400 smallholder beekeepers around Lake Tana.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Rift Valley Cold Chain Hubs",
+    "sector": "Agri-Tech & Post-Harvest Storage",
+    "location": "Hawassa, Sidama Region",
+    "total_score": 87,
+    "grid_variant": "INNOVATION_TECH",
+    "is_eligible": true,
+    "female_ownership_percentage": 40.0,
+    "total_staff": 22,
+    "requested_etb": 3800000.0,
+    "reviewer_summary": "Solar-powered cold storage hubs reducing post-harvest losses by 60% for avocado and tomato growers along the Hawassa-Shashemene corridor.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Bishoftu Bio-Fertilizer & Animal Feed",
+    "sector": "Circular Bio-Economy",
+    "location": "Bishoftu, Oromia Region",
+    "total_score": 84,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": true,
+    "female_ownership_percentage": 45.0,
+    "total_staff": 25,
+    "requested_etb": 2800000.0,
+    "reviewer_summary": "Converts brewery and poultry waste into high-protein animal feed and organic compost. Solid 3-year revenue track record with growing regional demand.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Entoto Leather Crafters Cooperative",
+    "sector": "Footwear & Leathergoods",
+    "location": "Addis Ababa, Gullele Sub-City",
+    "total_score": 81,
+    "grid_variant": "WOMEN_YOUTH_LED",
+    "is_eligible": true,
+    "female_ownership_percentage": 85.0,
+    "total_staff": 28,
+    "requested_etb": 1800000.0,
+    "reviewer_summary": "Youth and women artisanal cooperative manufacturing finished leather bags and safety boots. Seeking grant funding for precision cutting and stitching machines.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Finfinne Drip Irrigation Systems",
+    "sector": "Water Management & Irrigation Tech",
+    "location": "Sebeta, Oromia Special Zone",
+    "total_score": 79,
+    "grid_variant": "INNOVATION_TECH",
+    "is_eligible": true,
+    "female_ownership_percentage": 25.0,
+    "total_staff": 14,
+    "requested_etb": 2500000.0,
+    "reviewer_summary": "Locally molded low-pressure drip irrigation kits tailored for smallholder vegetable plots. Strong water conservation metrics.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Gondar Sesame Hulling & Processing",
+    "sector": "Agri-Export & Oilseeds",
+    "location": "Gondar, Amhara Region",
+    "total_score": 76,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": true,
+    "female_ownership_percentage": 30.0,
+    "total_staff": 40,
+    "requested_etb": 4000000.0,
+    "reviewer_summary": "Established sesame processing plant seeking modern sorting machinery to access premium international markets. Solid collateral backing.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Dire Dawa Metal & Farm Tool Works",
+    "sector": "Light Engineering & Fabrication",
+    "location": "Dire Dawa City Administration",
+    "total_score": 72,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": true,
+    "female_ownership_percentage": 20.0,
+    "total_staff": 19,
+    "requested_etb": 1500000.0,
+    "reviewer_summary": "Produces animal-drawn plows, wheelbarrows, and threshing equipment for eastern agro-pastoralists. Stable regional distribution.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Wondo Genet Essential Oils",
+    "sector": "Natural Cosmetics & Aromatics",
+    "location": "Wondo Genet, Sidama",
+    "total_score": 68,
+    "grid_variant": "WOMEN_YOUTH_LED",
+    "is_eligible": true,
+    "female_ownership_percentage": 60.0,
+    "total_staff": 16,
+    "requested_etb": 1900000.0,
+    "reviewer_summary": "Steam distillation of eucalyptus and lemongrass oils. Good community engagement but financial bookkeeping requires formalization.",
+    "contradictions": [
+      {
+        "claim_a": "Stated 16 full-time staff in voice note",
+        "claim_b": "Payroll record shows only 9 regular employees and 7 seasonal harvest pickers",
+        "severity": "WARNING",
+        "explanation": "Headcount ambiguity between seasonal pickers and full-time permanent workers."
+      }
+    ]
+  },
+  {
+    "business_name": "Harar Coffee Washing & Dry Mill",
+    "sector": "Coffee Processing",
+    "location": "Harari Region",
+    "total_score": 63,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": true,
+    "female_ownership_percentage": 35.0,
+    "total_staff": 24,
+    "requested_etb": 3000000.0,
+    "reviewer_summary": "High-altitude specialty coffee processing. Good quality scores but working capital management has been uneven over past two seasons.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Axum Stone Carving & Craft Enterprise",
+    "sector": "Artisanal Mining & Cultural Crafts",
+    "location": "Axum, Tigray",
+    "total_score": 57,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": true,
+    "female_ownership_percentage": 40.0,
+    "total_staff": 8,
+    "requested_etb": 900000.0,
+    "reviewer_summary": "Traditional masonry and craft cooperative recovering post-conflict. High cultural preservation value but limited commercial scalability.",
+    "contradictions": []
+  },
+  {
+    "business_name": "Jimma Timber & Logging Operations",
+    "sector": "Forestry & Wood Processing",
+    "location": "Jimma, Oromia Region",
+    "total_score": 42,
+    "grid_variant": "GENERAL_SME",
+    "is_eligible": false,
+    "female_ownership_percentage": 0.0,
+    "total_staff": 15,
+    "requested_etb": 2200000.0,
+    "reviewer_summary": "Disqualified due to unverified forestry permits and failure to confirm environmental waste management declarations.",
+    "contradictions": [
+      {
+        "claim_a": "Official license registered in 2024",
+        "claim_b": "Applicant claims 8-year logging contract without regional forestry department stamp",
+        "severity": "CRITICAL",
+        "explanation": "Missing regulatory forestry concessions and environmental clearance permits."
+      }
+    ]
+  }
+]
