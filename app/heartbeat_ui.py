@@ -1,24 +1,24 @@
 """
-Heartbeat EKG Animation Component for TeraGrant Agent.
-Renders an animated SVG pulse line indicating whether the AI agent is actively listening,
-extracting multimodal audio/vision inputs, or in an idle standby state.
+Pulsing Waveform Component for TeraGrant Agent.
+Renders an animated Siri-style CSS audio waveform indicator (equalizer bars)
+that dynamically animates when the AI is actively listening or transcribing.
 """
 
 import streamlit.components.v1 as components
 
 
-def render_heartbeat(is_active: bool = False, height: int = 75):
+def render_heartbeat(is_active: bool = False, height: int = 70):
     """
-    Renders an animated SVG EKG heartbeat status indicator.
+    Renders a Siri-style pulsing audio waveform component.
 
     Args:
-        is_active: True if the multimodal agent is actively processing/listening.
-        height: Height of the component in pixels.
+        is_active: True if the microphone is recording or the agent is actively processing.
+        height: Component height in pixels.
     """
-    active_class = "pulse-active" if is_active else "pulse-idle"
-    status_text = "🟢 Agent Active: Listening, Transcribing & Filling Form..." if is_active else "⚪ Agent Idle: Ready for Voice / Document Input"
-    line_color = "#10B981" if is_active else "#94A3B8"
-    glow_style = "filter: drop-shadow(0 0 6px #10B981);" if is_active else ""
+    status_text = "🎙️ AI Listening & Transcribing Live..." if is_active else "⚪ AI Standby • Drop voice note or start speaking"
+    status_color = "#10B981" if is_active else "#64748B"
+    bg_color = "#F0FDF4" if is_active else "#F8FAFC"
+    border_color = "#86EFAC" if is_active else "#E2E8F0"
 
     html_content = f"""
     <!DOCTYPE html>
@@ -32,72 +32,73 @@ def render_heartbeat(is_active: bool = False, height: int = 75):
             }}
             body {{
                 margin: 0;
-                padding: 4px 10px;
+                padding: 4px 6px;
                 background-color: transparent;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
             }}
-            .ekg-container {{
+            .waveform-card {{
                 display: flex;
                 align-items: center;
-                gap: 12px;
-                background-color: #F8FAFC;
-                border: 1px solid #E2E8F0;
-                border-radius: 8px;
-                padding: 6px 14px;
+                justify-content: space-between;
+                background-color: {bg_color};
+                border: 1.5px solid {border_color};
+                border-radius: 10px;
+                padding: 8px 16px;
+                gap: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+                transition: all 0.3s ease;
             }}
-            .ekg-status {{
+            .status-label {{
                 font-size: 12px;
                 font-weight: 600;
-                color: #334155;
-                white-space: nowrap;
+                color: {status_color};
+                display: flex;
+                align-items: center;
+                gap: 6px;
             }}
-            .ekg-svg-wrap {{
-                flex: 1;
-                height: 38px;
-                overflow: hidden;
-                position: relative;
+            .bars-container {{
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                height: 24px;
             }}
-            svg {{
-                width: 100%;
-                height: 100%;
+            .bar {{
+                width: 3.5px;
+                border-radius: 4px;
+                background: linear-gradient(180deg, #3B82F6 0%, #10B981 100%);
+                height: {'16px' if is_active else '5px'};
+                opacity: {'1' if is_active else '0.4'};
+                animation: {'pulse-bar 0.8s ease-in-out infinite alternate' if is_active else 'none'};
+                transform-origin: bottom;
             }}
-            .ekg-path {{
-                stroke: {line_color};
-                stroke-width: 2.5;
-                stroke-linecap: round;
-                stroke-linejoin: round;
-                fill: none;
-                {glow_style}
-            }}
-            .pulse-active .ekg-path {{
-                stroke-dasharray: 600;
-                stroke-dashoffset: 600;
-                animation: ekg-draw 2.2s linear infinite;
-            }}
-            @keyframes ekg-draw {{
+            .bar:nth-child(1) {{ animation-delay: 0.1s; height: {'18px' if is_active else '6px'}; }}
+            .bar:nth-child(2) {{ animation-delay: 0.3s; height: {'24px' if is_active else '8px'}; }}
+            .bar:nth-child(3) {{ animation-delay: 0.5s; height: {'14px' if is_active else '4px'}; }}
+            .bar:nth-child(4) {{ animation-delay: 0.2s; height: {'22px' if is_active else '7px'}; }}
+            .bar:nth-child(5) {{ animation-delay: 0.4s; height: {'16px' if is_active else '5px'}; }}
+
+            @keyframes pulse-bar {{
                 0% {{
-                    stroke-dashoffset: 600;
+                    transform: scaleY(0.25);
+                }}
+                50% {{
+                    transform: scaleY(1.0);
                 }}
                 100% {{
-                    stroke-dashoffset: 0;
+                    transform: scaleY(0.4);
                 }}
-            }}
-            .pulse-idle .ekg-path {{
-                stroke-dasharray: none;
-                opacity: 0.6;
             }}
         </style>
     </head>
     <body>
-        <div class="ekg-container {active_class}">
-            <div class="ekg-svg-wrap">
-                <svg viewBox="0 0 500 60" preserveAspectRatio="none">
-                    <path class="ekg-path" d="M0,30 L60,30 L75,10 L90,50 L105,25 L120,35 L135,30 L220,30 L235,10 L250,50 L265,25 L280,35 L295,30 L380,30 L395,10 L410,50 L425,25 L440,35 L455,30 L500,30" />
-                </svg>
+        <div class="waveform-card">
+            <div class="status-label">{status_text}</div>
+            <div class="bars-container">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
             </div>
-            <div class="ekg-status">{status_text}</div>
         </div>
     </body>
     </html>

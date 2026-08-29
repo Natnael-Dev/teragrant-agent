@@ -30,6 +30,12 @@ Read your transcript from Step 1. Extract the following facts ONLY if they are e
 - location
 - financial_figures (list of strings with currency)
 
+ENTITY ISOLATION RULE: You must extract ONLY the core entity. Ignore all conversational filler, greetings, meta-speech, and pronouns.
+Examples:
+If user says 'Hello, my name is Dexter', the name is 'Dexter' (NOT 'Hello my name is Dexter').
+If user says 'Uh, we are located in Bekoji', the location is 'Bekoji'.
+If user says 'I have about 8 workers', the count is 8.
+
 OUTPUT FORMAT:
 Return ONLY a valid JSON object matching the AudioTranscriptExtraction schema. The 'transcript' field MUST contain the exact output of Step 1."""
 
@@ -65,9 +71,8 @@ def extract_audio_story(
     }
     guessed_type, _ = mimetypes.guess_type(str(file_path))
     mime_type = mime_map.get(ext) or guessed_type or "audio/mpeg"
-
-    if not model or "2.0" in str(model) or "3.6" in str(model):
-        model = "gemini-1.5-flash"
+    if ext == ".wav" or mime_type in ("audio/x-wav", "audio/wave"):
+        mime_type = "audio/wav"
 
     ai_client = client or get_gemini_client(api_key=api_key)
 

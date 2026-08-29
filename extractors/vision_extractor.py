@@ -51,9 +51,6 @@ def extract_license_data(
     }
     mime_type = mime_type_map.get(ext, "image/jpeg")
 
-    if not model or "2.0" in str(model) or "3.6" in str(model):
-        model = "gemini-1.5-flash"
-
     ai_client = client or get_gemini_client(api_key=api_key)
 
     image_part = types.Part.from_bytes(

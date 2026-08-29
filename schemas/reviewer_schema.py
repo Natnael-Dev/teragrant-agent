@@ -15,6 +15,14 @@ class ContradictionSeverity(str, Enum):
     WARNING = "WARNING"      # Plausible temporal or narrative discrepancy requiring site-visit clarification
 
 
+class ContradictionKind(str, Enum):
+    """Taxonomy classification of identified anomalies."""
+    CONTRADICTION = "CONTRADICTION"        # Direct factual/mathematical impossibility
+    DISCREPANCY = "DISCREPANCY"            # Multi-source observation difference (e.g. voice vs photo headcount)
+    MISSING_EVIDENCE = "MISSING_EVIDENCE"  # Unsubstantiated narrative claim lacking corroboration
+    PLAUSIBLE = "PLAUSIBLE"                # Consistent narrative but unverified by physical artifacts
+
+
 class Contradiction(BaseModel):
     """
     Structured record of a detected discrepancy between documents, numbers, or statements.
@@ -25,6 +33,10 @@ class Contradiction(BaseModel):
     claim_b: str = Field(..., min_length=2, description="Contradicting statement, record, or calculated total")
     severity: ContradictionSeverity = Field(..., description="Severity level of the discrepancy")
     explanation: str = Field(..., min_length=10, description="Clear description of the contradiction and its implications")
+    kind: ContradictionKind = Field(
+        default=ContradictionKind.DISCREPANCY,
+        description="Taxonomy classification of the discrepancy"
+    )
 
 
 class RankedCompany(BaseModel):

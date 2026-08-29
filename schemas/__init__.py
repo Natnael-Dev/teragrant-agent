@@ -31,6 +31,7 @@ from .scoring_schema import (
 )
 from .reviewer_schema import (
     ContradictionSeverity,
+    ContradictionKind,
     Contradiction,
     RankedCompany,
     RankedShortlist,
@@ -38,10 +39,17 @@ from .reviewer_schema import (
 from .consent_schema import (
     DeclarationExplanation,
     ConsentPackage,
+    ConsentVerdict,
+    ConsentStatus,
+    ConsentRecord,
 )
 from .interview_schema import (
     AnswerExtraction,
     InterviewStep,
+)
+from .provenance_schema import (
+    FieldStatus,
+    FieldProvenance,
 )
 
 __all__ = [
@@ -69,11 +77,17 @@ __all__ = [
     "CriterionScore",
     "ScoringResult",
     "ContradictionSeverity",
+    "ContradictionKind",
     "Contradiction",
     "RankedCompany",
     "RankedShortlist",
     "DeclarationExplanation",
     "ConsentPackage",
+    "ConsentVerdict",
+    "ConsentStatus",
+    "ConsentRecord",
     "AnswerExtraction",
     "InterviewStep",
+    "FieldStatus",
+    "FieldProvenance",
 ]

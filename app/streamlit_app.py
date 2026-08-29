@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from extractors.config import MODEL_FALLBACK_CHAIN
+from extractors.config import MODEL_FALLBACK_CHAIN, get_gemini_client
 from extractors.schemas import LicenseExtraction, WorkshopExtraction, AudioTranscriptExtraction
 from extractors.vision_extractor import extract_license_data
 from extractors.workshop_extractor import extract_workshop_data
@@ -66,6 +66,7 @@ from app.digital_twin import render_giz_form, convert_to_serializable
 from app.heartbeat_ui import render_heartbeat
 from app.chat_bubble_ui import render_chat_bubble, render_question_bubble
 from app.tts_ui import speak_question
+from app.tts_engine import generate_speech_audio
 from app.rehearsal_data import get_almaz_scenario, get_nahom_scenario
 from schemas.interview_schema import InterviewStep, AnswerExtraction
 from agents.interview_agent import (
@@ -77,7 +78,7 @@ from agents.interview_agent import (
 
 
 # =============================================================================
-# PAGE CONFIGURATION & STYLING
+# PAGE CONFIGURATION & PREMIUM FINTECH STYLING
 # =============================================================================
 st.set_page_config(
     page_title="TeraGrant Agent | AI SME Grant System",
@@ -88,11 +89,32 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* 1. Hide default Streamlit chrome */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+
+    /* 2. Global clean light-grey background */
+    .stApp {
+        background-color: #F8FAFC;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* 3. Wrap columns in distinct White SaaS Cards */
+    [data-testid="stColumn"] {
+        background: #FFFFFF;
+        padding: 1.3rem;
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+    }
+
     .main-header {
         font-size: 2.1rem;
-        font-weight: 700;
-        color: #1E293B;
+        font-weight: 800;
+        color: #0F172A;
         margin-bottom: 0.2rem;
+        letter-spacing: -0.5px;
     }
     .sub-header {
         font-size: 1.0rem;
@@ -105,6 +127,7 @@ st.markdown("""
         border-radius: 10px;
         padding: 1rem;
         text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
     .gap-card {
         background-color: #FFFBEB;
@@ -147,10 +170,23 @@ with st.sidebar:
 
     model_choice = st.selectbox(
         "Gemini Foundation Model",
-        options=["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-pro", "gemini-1.5-pro-latest"],
+        options=["gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.5-pro"],
         index=0,
-        help="Select the Gemini multimodal reasoning model (defaults to gemini-1.5-flash with automatic failover)."
+        help="Select the Gemini multimodal reasoning model (defaults to gemini-2.5-flash with automatic failover)."
     )
+
+    if st.sidebar.button("🔍 Test API Connection", use_container_width=True):
+        with st.spinner("Checking API key and available models..."):
+            try:
+                curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
+                client = get_gemini_client(api_key=curr_key)
+                # List available models to verify connection
+                models_iter = list(client.models.list())
+                model_names = [m.name for m in models_iter][:5]  # Get first 5 models
+                st.sidebar.success(f"✅ API Connected! Found {len(models_iter)} models.")
+                st.sidebar.info(f"Sample models: {', '.join(model_names)}")
+            except Exception as e:
+                st.sidebar.error(f"❌ API Connection Failed: {str(e)}")
 
     st.divider()
     st.markdown("### 🧩 Agent Architecture")
@@ -278,8 +314,8 @@ with tab1:
         intake_style = st.radio(
             "Select Intake Mode:",
             options=[
-                "🗣️ Guided Interview (AI asks you)",
-                "📄 Free-form (one voice note)",
+                "📄 Free-form (WhatsApp Voice Note)",
+                "🗣️ Guided Interview (Need help? Let AI interview you step-by-step)",
             ],
             index=0,
             horizontal=True,
@@ -310,8 +346,12 @@ with tab1:
                     total_steps=len(INTERVIEW_STEPS),
                 )
 
-                # Browser TTS Control
-                speak_question(text=current_step.question_en, lang="en", autoplay=False)
+                # True Voice Output (Autoplay Python MP3 via gTTS)
+                try:
+                    speech_bytes = generate_speech_audio(text=current_step.question_en, lang="en")
+                    st.audio(speech_bytes, format="audio/mp3", autoplay=True)
+                except Exception:
+                    pass
 
                 # Audio Recording per step
                 step_audio = st.audio_input(
@@ -543,9 +583,6 @@ with tab1:
                     audio_fmt = Path(uploaded_audio.name).suffix.lower()
                     audio_sig = f"upload_{uploaded_audio.name}_{len(raw_audio)}"
 
-                if model_choice and ("2.0" in model_choice or "3.6" in model_choice):
-                    model_choice = "gemini-1.5-flash"
-
                 if raw_audio and st.session_state.get("last_transcribed_audio_sig") != audio_sig:
                     curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
                     if curr_key:
@@ -557,6 +594,15 @@ with tab1:
                                 auto_audio_data = extract_audio_story(audio_path=tmp_live_path, model=model_choice, api_key=curr_key)
                                 st.session_state["latest_audio_transcript"] = auto_audio_data
                                 st.session_state["last_transcribed_audio_sig"] = audio_sig
+                                # Live preview synchronization to Digital Twin form
+                                if auto_audio_data:
+                                    live_twin = dict(st.session_state.get("extracted_data", {}))
+                                    if auto_audio_data.business_name: live_twin["company_name"] = auto_audio_data.business_name
+                                    if auto_audio_data.employee_count is not None: live_twin["total_staff"] = auto_audio_data.employee_count
+                                    if auto_audio_data.female_staff is not None: live_twin["female_staff"] = auto_audio_data.female_staff
+                                    if auto_audio_data.location: live_twin["address"] = auto_audio_data.location
+                                    if auto_audio_data.product_type: live_twin["main_products"] = auto_audio_data.product_type
+                                    st.session_state["extracted_data"] = live_twin
                             except Exception as live_err:
                                 st.session_state["last_transcribed_audio_sig"] = audio_sig
                                 live_msg = str(live_err)
@@ -579,9 +625,6 @@ with tab1:
 
             # PIPELINE EXECUTION FOR FREE-FORM
             if process_btn and is_live_mode:
-                if model_choice and ("2.0" in model_choice or "3.6" in model_choice):
-                    model_choice = "gemini-1.5-flash"
-
                 current_key = os.getenv("GEMINI_API_KEY")
                 if not current_key:
                     st.error("❌ Gemini API Key is required for Live Mode! Please enter it in the sidebar.")

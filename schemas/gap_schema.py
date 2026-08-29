@@ -4,11 +4,12 @@ Defines Pydantic models for tracking missing application fields and packaging fi
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pydantic import BaseModel, Field, ConfigDict
 
 from .application_schema import ApplicationSchema
 from .impact_schema import ImpactProtocol
+from .provenance_schema import FieldProvenance
 
 
 class GapPriority(str, Enum):
@@ -52,6 +53,7 @@ class ApplicationPack(BaseModel):
     - Normalized ApplicationSchema
     - Normalized ImpactProtocol
     - List of explicitly tracked Gaps (missing data)
+    - Provenance Ledger mapping each field to its epistemic audit trail
     """
     model_config = ConfigDict(extra="forbid")
 
@@ -66,6 +68,10 @@ class ApplicationPack(BaseModel):
     gaps: List[Gap] = Field(
         default_factory=list,
         description="List of identified information gaps and missing data items"
+    )
+    provenance: Dict[str, FieldProvenance] = Field(
+        default_factory=dict,
+        description="Provenance ledger mapping field paths to epistemic status and evidence snippets"
     )
 
     @property

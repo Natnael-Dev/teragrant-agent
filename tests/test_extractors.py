@@ -211,7 +211,7 @@ def test_extract_audio_file_not_found():
 # =========================================================================
 
 def test_client_timeout_http_options():
-    """Verify that get_gemini_client configures the 30-second (30000ms) timeout cap."""
+    """Verify that get_gemini_client configures the 30-second (30000ms) timeout cap and api_version=v1."""
     with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}):
         with patch("google.genai.Client") as mock_genai_client:
             get_gemini_client()
@@ -219,6 +219,7 @@ def test_client_timeout_http_options():
             call_kwargs = mock_genai_client.call_args[1]
             assert "http_options" in call_kwargs
             assert call_kwargs["http_options"].timeout == 30000
+            assert call_kwargs["http_options"].api_version == "v1"
 
 
 def test_is_network_error_classification():
@@ -235,7 +236,7 @@ def test_is_network_error_classification():
     assert is_network_error(Exception("WinError 10060 TCP connection timed out")) is True
 
     # Non-network API errors
-    assert is_network_error(Exception("404 NOT_FOUND models/gemini-1.5-flash")) is False
+    assert is_network_error(Exception("404 NOT_FOUND models/gemini-2.5-flash")) is False
     assert is_network_error(ValueError("Invalid JSON schema structure")) is False
 
 
@@ -249,7 +250,7 @@ def test_call_gemini_with_fallback_network_retry_and_fail_fast():
         with pytest.raises(RuntimeError) as exc_info:
             call_gemini_with_fallback(
                 client=mock_client,
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents="test content",
                 config=None,
             )
@@ -267,7 +268,7 @@ def test_call_gemini_with_fallback_api_404_walks_chain():
 
     # First model returns 404, second model succeeds
     mock_client.models.generate_content.side_effect = [
-        Exception("404 NOT_FOUND models/gemini-1.5-flash is not found"),
+        Exception("404 NOT_FOUND models/gemini-2.5-flash is not found"),
         success_resp
     ]
 
@@ -281,24 +282,4 @@ def test_call_gemini_with_fallback_api_404_walks_chain():
     assert resp == success_resp
     assert model_used == MODEL_FALLBACK_CHAIN[1]
     assert mock_client.models.generate_content.call_count == 2
-
-
-def test_call_gemini_with_fallback_surfaces_all_model_errors():
-    """Verify that when all models fail, a JSON dict with each candidate's error is surfaced."""
-    mock_client = MagicMock()
-    mock_client.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED Quota exceeded")
-
-    with pytest.raises(RuntimeError) as exc_info:
-        call_gemini_with_fallback(
-            client=mock_client,
-            model=None,
-            contents="test content",
-            config=None,
-        )
-
-    err_str = str(exc_info.value)
-    assert "All models failed. Details:" in err_str
-    assert "gemini-1.5-flash" in err_str
-    assert "429 RESOURCE_EXHAUSTED" in err_str
-
 

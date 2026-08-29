@@ -1,10 +1,62 @@
-"""
-Multilingual Consent & Declaration Explanation Schemas (Applicant Path).
-Ensures explicit, informed consent with zero automated checkbox ticking.
-"""
-
-from typing import List
+from enum import Enum
+from typing import List, Optional
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field, ConfigDict
+
+
+class ConsentVerdict(str, Enum):
+    """Verbal declaration consent response classification."""
+    YES = "YES"
+    NO = "NO"
+    UNCLEAR = "UNCLEAR"
+
+
+class ConsentStatus(str, Enum):
+    """Lifecycle status of recorded consent."""
+    ACTIVE = "ACTIVE"
+    REVOKED = "REVOKED"
+    NOT_GIVEN = "NOT_GIVEN"
+
+
+class ConsentRecord(BaseModel):
+    """
+    Audit record capturing verbal consent for a specific single declaration.
+    Enforces strict 1-to-1 mapping (one declaration per record; never global).
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    declaration_id: str = Field(
+        ...,
+        description="Exact identifier of the single declaration (e.g. 'declaration_05_anti_bribery_corruption')"
+    )
+    language: str = Field(
+        ...,
+        description="Spoken language used for the explanation and consent response (e.g. 'Amharic', 'Oromo', 'English')"
+    )
+    explanation_delivered: bool = Field(
+        ...,
+        description="True if the plain-language explanation was read/played to the applicant"
+    )
+    response_transcript: str = Field(
+        ...,
+        description="Verbatim transcript of the applicant's spoken reply"
+    )
+    response_verdict: ConsentVerdict = Field(
+        ...,
+        description="Parsed consent verdict (YES, NO, or UNCLEAR)"
+    )
+    timestamp: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(),
+        description="ISO 8601 UTC timestamp when consent was recorded"
+    )
+    audio_ref: Optional[str] = Field(
+        default=None,
+        description="Optional URI, filepath, or hash reference to the recorded audio proof"
+    )
+    status: ConsentStatus = Field(
+        default=ConsentStatus.ACTIVE,
+        description="Current status: ACTIVE, REVOKED, or NOT_GIVEN"
+    )
 
 
 class DeclarationExplanation(BaseModel):

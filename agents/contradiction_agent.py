@@ -13,7 +13,7 @@ from google.genai import types
 from extractors.config import get_gemini_client, call_gemini_with_fallback
 from extractors.schemas import WorkshopExtraction
 from schemas.gap_schema import ApplicationPack
-from schemas.reviewer_schema import Contradiction, ContradictionSeverity
+from schemas.reviewer_schema import Contradiction, ContradictionSeverity, ContradictionKind
 
 
 class SemanticContradictionResponse(BaseModel):
@@ -34,11 +34,16 @@ Your task is to identify subtle, non-obvious SEMANTIC and NARRATIVE CONTRADICTIO
 3. Financial Figures (revenue history vs funding target vs machinery capacity)
 4. Milestone Timelines vs Operational Feasibility
 
+CRITICAL TAXONOMY CLASSIFICATION:
+For each finding, classify 'kind' into exactly one of:
+- CONTRADICTION: Direct factual or mathematical impossibility
+- DISCREPANCY: Disagreement between distinct observation sources (e.g. photo vs audio)
+- MISSING_EVIDENCE: Unsubstantiated narrative claim lacking corroboration
+- PLAUSIBLE: Narrative claim consistent with operations but currently unverified by physical artifacts
+
 CRITICAL RULES:
 1. ONLY flag genuine contradictions supported by evidence in the provided data. Do not hallucinate fake discrepancies.
-2. Classify severity accurately:
-   - CRITICAL: Severe misrepresentation, fraudulent document timeline, or fundamental operational conflict.
-   - WARNING: Minor discrepancy that might be explained by informal trading history or calendar conversion (E.C. vs G.C.).
+2. Classify severity accurately (CRITICAL or WARNING).
 3. Return an empty list if no semantic contradictions exist."""
 
 
@@ -71,6 +76,7 @@ def detect_contradictions(
                     claim_a=f"Total declared staff headcount is {total_staff}",
                     claim_b=f"Sum of gender breakdown is {gender_sum} (Male: {emp.gender_split.male}, Female: {emp.gender_split.female}, Other: {emp.gender_split.other})",
                     severity=ContradictionSeverity.CRITICAL,
+                    kind=ContradictionKind.CONTRADICTION,
                     explanation=f"Mathematical contradiction: The staff headcount ({total_staff}) does not equal the sum of the gender distribution ({gender_sum}).",
                 )
             )
@@ -82,6 +88,7 @@ def detect_contradictions(
                     claim_a=f"Total declared staff headcount is {total_staff}",
                     claim_b=f"Sum of age band breakdown is {age_sum} (Youth 18-29: {emp.age_split.youth_18_29}, Adults 30-50: {emp.age_split.adults_30_50}, Seniors 50+: {emp.age_split.seniors_above_50})",
                     severity=ContradictionSeverity.CRITICAL,
+                    kind=ContradictionKind.CONTRADICTION,
                     explanation=f"Mathematical contradiction: The staff headcount ({total_staff}) does not equal the sum of the age demographic distribution ({age_sum}).",
                 )
             )
@@ -95,6 +102,7 @@ def detect_contradictions(
                         claim_a=f"Application declares a total staff headcount of {total_staff}",
                         claim_b=f"Workshop facility photo shows approximately {photo_count} worker(s) present",
                         severity=ContradictionSeverity.WARNING,
+                        kind=ContradictionKind.DISCREPANCY,
                         explanation=f"Visual evidence discrepancy: Declared workforce ({total_staff}) differs notably from observed on-site workers ({photo_count}) in facility photo.",
                     )
                 )

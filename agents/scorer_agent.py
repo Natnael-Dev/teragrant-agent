@@ -192,3 +192,173 @@ def _build_default_scores(variant: GridVariant) -> list[CriterionScore]:
             CriterionScore(criterion=CriterionName.COMMUNITY_IMPACT, max_points=5, awarded_points=3, reasoning="Local community support."),
             CriterionScore(criterion=CriterionName.SCALABILITY, max_points=5, awarded_points=3, reasoning="Business scalability."),
         ]
+
+
+# =============================================================================
+# TRANSPARENCY ENGINES (DETERMINISTIC + EVIDENCE-BASED)
+# =============================================================================
+
+def compare_grid_variants(
+    application: Optional[Any],
+    impact: Optional[Any],
+    pack: Optional[ApplicationPack] = None,
+    client: Optional[Any] = None,
+) -> dict:
+    """
+    Evaluates the application under all 3 grid variants and returns their scores
+    alongside the deterministic routing recommendation.
+    """
+    from .router_agent import route_to_grid_variant
+
+    if pack is None:
+        pack = ApplicationPack(application=application, impact=impact, gaps=[])
+
+    recommended_variant = route_to_grid_variant(pack.application, pack.impact)
+
+    variant_scores = {}
+    for var in [GridVariant.GENERAL_SME, GridVariant.WOMEN_YOUTH_LED, GridVariant.INNOVATION_TECH]:
+        res = score_application(pack=pack, variant=var, client=client)
+        variant_scores[var.value] = res.total_score
+
+    routing_reason = (
+        f"Automated track recommendation: {recommended_variant.value} based on applicant demographic split, "
+        f"innovation focus, and project impact objectives."
+    )
+
+    return {
+        "variant_scores": variant_scores,
+        "recommended_variant": recommended_variant.value,
+        "routing_reason": routing_reason,
+    }
+
+
+def score_sensitivity(
+    pack: ApplicationPack,
+    scoring_result: ScoringResult,
+) -> dict:
+    """
+    Performs deterministic gap sensitivity analysis.
+    Identifies how many recoverable points are blocked by each missing field.
+    """
+    gap_criterion_map = {
+        "tin_number": CriterionName.FINANCIAL_VIABILITY,
+        "financials": CriterionName.FINANCIAL_VIABILITY,
+        "turnover": CriterionName.FINANCIAL_VIABILITY,
+        "gender": CriterionName.GENDER_YOUTH_INCLUSION,
+        "female": CriterionName.GENDER_YOUTH_INCLUSION,
+        "staff": CriterionName.JOB_CREATION,
+        "employee": CriterionName.JOB_CREATION,
+        "employment": CriterionName.JOB_CREATION,
+        "milestones": CriterionName.INNOVATION_UNIQUE_FEATURE,
+        "machinery": CriterionName.INNOVATION_UNIQUE_FEATURE,
+        "license": CriterionName.MANAGEMENT_ORGANOGRAM,
+        "registration": CriterionName.MANAGEMENT_ORGANOGRAM,
+        "sdg": CriterionName.SDG_ENVIRONMENTAL_IMPACT,
+        "supply": CriterionName.LOCAL_SUPPLY_CHAIN,
+    }
+
+    score_by_crit = {cs.criterion: cs for cs in scoring_result.criteria_scores}
+    sensitivities = []
+    seen_criteria = set()
+
+    for gap in pack.gaps:
+        matched_crit = CriterionName.LOCAL_SUPPLY_CHAIN
+        for key, crit in gap_criterion_map.items():
+            if key in gap.field_name.lower():
+                matched_crit = crit
+                break
+
+        crit_score = score_by_crit.get(matched_crit)
+        if crit_score and matched_crit not in seen_criteria:
+            recoverable = max(0, crit_score.max_points - crit_score.awarded_points)
+            seen_criteria.add(matched_crit)
+        else:
+            recoverable = 2
+
+        sensitivities.append({
+            "gap_field": gap.field_name,
+            "criterion": matched_crit.value,
+            "recoverable_points": recoverable,
+            "priority": gap.priority.value,
+            "required_from": gap.required_from,
+        })
+
+    total_recoverable = sum(s["recoverable_points"] for s in sensitivities)
+    potential_total = min(100, scoring_result.total_score + total_recoverable)
+
+    return {
+        "current_score": scoring_result.total_score,
+        "potential_total": potential_total,
+        "total_recoverable_points": total_recoverable,
+        "sensitivities": sensitivities,
+    }
+
+
+def submission_readiness(
+    pack: ApplicationPack,
+    gate: EligibilityGate,
+    contradictions: list,
+    consent_records: Optional[list] = None,
+) -> dict:
+    """
+    Calculates overall submission readiness score (0-100%) and enumerates blockers.
+    """
+    from schemas.reviewer_schema import ContradictionSeverity
+
+    critical_contras = [c for c in contradictions if getattr(c, "severity", None) == ContradictionSeverity.CRITICAL]
+    high_gaps = pack.high_priority_gaps if hasattr(pack, "high_priority_gaps") else []
+
+    checks = {
+        "eligibility_gate_passed": gate.is_eligible,
+        "zero_critical_contradictions": len(critical_contras) == 0,
+        "high_priority_gaps_resolved": len(high_gaps) == 0,
+        "application_schema_present": pack.application is not None,
+        "impact_protocol_present": pack.impact is not None,
+    }
+
+    if consent_records is not None:
+        active_yes = [r for r in consent_records if getattr(r, "status", None) == "ACTIVE" and getattr(r, "response_verdict", None) == "YES"]
+        checks["mandatory_declarations_consented"] = len(active_yes) >= 3
+
+    passed_count = sum(1 for v in checks.values() if v is True)
+    total_count = len(checks)
+    readiness_pct = round((passed_count / total_count) * 100.0, 1)
+
+    blockers = []
+    if not gate.is_eligible:
+        blockers.append(f"Eligibility Gate Failed: {gate.gate_reasoning}")
+    for c in critical_contras:
+        blockers.append(f"Critical Contradiction: {c.explanation}")
+    for g in high_gaps:
+        blockers.append(f"High Priority Gap: '{g.field_name}' ({g.reason_missing})")
+
+    return {
+        "readiness_pct": readiness_pct,
+        "is_ready": readiness_pct >= 100.0 and len(blockers) == 0,
+        "checks": checks,
+        "blockers": blockers,
+    }
+
+
+def reproducibility_check(
+    pack: ApplicationPack,
+    variant: GridVariant,
+    iterations: int = 2,
+    client: Optional[Any] = None,
+) -> dict:
+    """
+    Runs the scoring engine multiple times on the same input to test deterministic consistency.
+    """
+    scores = []
+    for _ in range(iterations):
+        res = score_application(pack=pack, variant=variant, client=client)
+        scores.append(res.total_score)
+
+    is_identical = len(set(scores)) <= 1
+    diff = max(scores) - min(scores) if scores else 0
+
+    return {
+        "is_identical": is_identical,
+        "scores": scores,
+        "diff": diff,
+    }

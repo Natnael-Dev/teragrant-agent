@@ -83,8 +83,14 @@ INTERVIEW_STEPS: List[InterviewStep] = [
 EXTRACTION_SYSTEM_PROMPT = """You are a strict data extraction specialist.
 Your task is to extract ONE specific fact from a spoken interview transcript matching the target field.
 
+ENTITY ISOLATION RULE: You must extract ONLY the core entity. Ignore all conversational filler, greetings, meta-speech, and pronouns.
+Examples:
+If user says 'Hello, my name is Dexter', the name is 'Dexter' (NOT 'Hello my name is Dexter').
+If user says 'Uh, we are located in Bekoji', the location is 'Bekoji'.
+If user says 'I have about 8 workers', the count is 8.
+
 CRITICAL RULES:
-1. ONLY extract the fact directly requested for the given field.
+1. ONLY extract the core entity fact directly requested for the given field.
 2. If the user's answer does not contain the requested fact or is completely irrelevant/incoherent, return value null and confidence 0.0.
 3. NEVER guess, assume, or hallucinate missing details.
 4. Return confidence between 0.0 (unclear/missing) and 1.0 (explicit, clear statement).
@@ -108,9 +114,6 @@ def extract_answer(
     """
     if not transcript or not transcript.strip():
         return AnswerExtraction(field_id=step.field_path, value=None, confidence=0.0, notes="Empty answer transcript.")
-
-    if not model or "2.0" in str(model) or "3.6" in str(model):
-        model = "gemini-1.5-flash"
 
     ai_client = client or get_gemini_client(api_key=api_key)
 

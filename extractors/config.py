@@ -3,10 +3,11 @@ Configuration and Client Factory for Google Gemini API.
 Includes Client Timeout Cap and Smart Error-Class Failover / Fallback Chain.
 """
 
+import json
 import os
 import socket
 import time
-from typing import Optional, Any, Tuple, List
+from typing import Optional, Any, Tuple, List, Dict
 from dotenv import load_dotenv
 import httpx
 from google import genai
@@ -15,12 +16,11 @@ from google.genai import types
 # Load environment variables from .env file
 load_dotenv()
 
-# Fallback chain for automatic failover when a model returns 404 / quota / retired
+# Fallback chain for automatic failover when a model returns 404 / retired / quota exceeded
 MODEL_FALLBACK_CHAIN: List[str] = [
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-latest",
-    "gemini-1.5-pro",
-    "gemini-1.5-pro-latest",
+    "gemini-2.5-flash",
+    "gemini-3.5-flash",
+    "gemini-2.5-pro",
 ]
 
 
@@ -41,10 +41,11 @@ def get_api_key() -> str:
 def get_gemini_client(api_key: Optional[str] = None) -> genai.Client:
     """
     Initializes and returns a Google GenAI Client instance with a hard 30-second timeout cap
-    (http_options timeout=30000 ms) so dead transport connections fail fast.
+    (http_options timeout=30000 ms) and explicitly forced v1 API version.
     """
     effective_key = api_key or get_api_key()
-    http_opts = types.HttpOptions(timeout=30000)
+    # CRITICAL: Force v1 API version to avoid v1beta 404 errors with standard model names
+    http_opts = types.HttpOptions(timeout=30000, api_version="v1")
     return genai.Client(api_key=effective_key, http_options=http_opts)
 
 
@@ -113,10 +114,10 @@ def call_gemini_with_fallback(
 ) -> Tuple[Any, str]:
     """
     Executes client.models.generate_content with smart error-class failover:
-    - Overrides legacy/unsupported model names to gemini-1.5-flash.
-    - Surfaces exact intermediate errors per candidate model.
+    - Automatically walks MODEL_FALLBACK_CHAIN candidates on failure.
+    - Captures and surfaces granular error details across every model candidate.
     - If it's a network error, retries ONCE on the SAME model, then moves to next.
-    - If it's a 404 / 429 / not found, walks the MODEL_FALLBACK_CHAIN candidates.
+    - If it's a 404 / 429 / not found / quota / deprecation, walks the MODEL_FALLBACK_CHAIN candidates.
 
     Args:
         client: The initialized genai.Client instance.
@@ -127,17 +128,12 @@ def call_gemini_with_fallback(
     Returns:
         Tuple[Any, str]: (response object, model_name_used)
     """
-    import json
-
-    if model and ("2.0" in str(model) or "3.6" in str(model)):
-        model = "gemini-1.5-flash"
-        
     candidates = [str(model)] if model else []
     for m in MODEL_FALLBACK_CHAIN:
         if m not in candidates:
             candidates.append(m)
 
-    errors = {}
+    errors: Dict[str, str] = {}
     for candidate in candidates:
         try:
             # Force string conversion of model name
@@ -165,8 +161,8 @@ def call_gemini_with_fallback(
                     errors[f"{candidate}_retry"] = str(retry_err)
                     continue  # Move to next model in chain
 
-            # If it's a 404 or 429 or not found, just log and move to next model
-            if "404" in err_str or "429" in err_str or "not found" in err_str or "is not supported" in err_str or "quota" in err_str or "deprecated" in err_str:
+            # If it's a 404, 429, not found, unsupported, deprecated, or quota error, log and move to next
+            if any(k in err_str for k in ("404", "429", "not found", "is not supported", "quota", "deprecated", "resource_exhausted", "permission_denied", "403", "invalid_argument", "400")):
                 continue
 
     # If we get here, ALL models failed.
