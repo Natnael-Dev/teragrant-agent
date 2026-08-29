@@ -1,23 +1,24 @@
 """
 Contradiction Detection Agent (Reviewer Path).
-Combines deterministic Python mathematical validation with Gemini semantic discrepancy analysis.
+Combines deterministic Python mathematical validation, visual evidence cross-checks,
+and Gemini semantic discrepancy analysis.
 """
 
 import json
 from typing import List, Optional, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, ValidationError
 
 from google.genai import types
 
-from extractors.config import get_gemini_client
+from extractors.config import get_gemini_client, call_gemini_with_fallback
+from extractors.schemas import WorkshopExtraction
 from schemas.gap_schema import ApplicationPack
 from schemas.reviewer_schema import Contradiction, ContradictionSeverity
-from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 class SemanticContradictionResponse(BaseModel):
     """Container schema for LLM semantic contradiction outputs."""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     contradictions: List[Contradiction] = Field(
         default_factory=list,
@@ -33,45 +34,29 @@ Your task is to identify subtle, non-obvious SEMANTIC and NARRATIVE CONTRADICTIO
 3. Financial Figures (revenue history vs funding target vs machinery capacity)
 4. Milestone Timelines vs Operational Feasibility
 
-EXAMPLES OF SEMANTIC CONTRADICTIONS:
-- License was issued in 2024 (e.g., 2016 E.C.), but applicant claims in their story to have been operating for 10 years.
-- Applicant claims to operate a nationwide logistics network, but declares 0 vehicles or machinery.
-- Project location in impact protocol differs from registered business license municipality.
-- Financial grant target is 10,000,000 ETB, but declared annual revenue is only 50,000 ETB with no collateral or assets.
-
 CRITICAL RULES:
 1. ONLY flag genuine contradictions supported by evidence in the provided data. Do not hallucinate fake discrepancies.
 2. Classify severity accurately:
    - CRITICAL: Severe misrepresentation, fraudulent document timeline, or fundamental operational conflict.
    - WARNING: Minor discrepancy that might be explained by informal trading history or calendar conversion (E.C. vs G.C.).
-3. Return an empty list if no semantic contradictions exist.
-
-Respond strictly in JSON matching the SemanticContradictionResponse schema."""
+3. Return an empty list if no semantic contradictions exist."""
 
 
 def detect_contradictions(
     pack: ApplicationPack,
-    model: str = "gemini-2.0-flash",
+    workshop_data: Optional[WorkshopExtraction] = None,
+    model: Optional[str] = None,
     api_key: Optional[str] = None,
     client: Optional[Any] = None,
 ) -> List[Contradiction]:
     """
-    Detects internal and cross-document contradictions within an ApplicationPack.
-    Executes deterministic mathematical checks in pure Python first, then invokes Gemini for semantic checks.
-
-    Args:
-        pack: The complete ApplicationPack.
-        model: Gemini model identifier.
-        api_key: Optional API key override.
-        client: Optional pre-configured genai Client.
-
-    Returns:
-        List[Contradiction]: Combined list of mathematical and semantic contradictions.
+    Detects internal, cross-document, and visual contradictions within an ApplicationPack.
+    Executes deterministic mathematical and visual checks in pure Python first, then invokes Gemini for semantic checks.
     """
     contradictions: List[Contradiction] = []
 
     # =========================================================================
-    # 1. PURE PYTHON MATHEMATICAL & LOGICAL CHECKS
+    # 1. PURE PYTHON MATHEMATICAL CHECKS
     # =========================================================================
     if pack.application and pack.application.employment:
         emp = pack.application.employment
@@ -101,6 +86,19 @@ def detect_contradictions(
                 )
             )
 
+        # Visual workshop photo headcount cross-check
+        if workshop_data and workshop_data.estimated_people_present is not None:
+            photo_count = workshop_data.estimated_people_present
+            if abs(photo_count - total_staff) > 2 and total_staff > 0:
+                contradictions.append(
+                    Contradiction(
+                        claim_a=f"Application declares a total staff headcount of {total_staff}",
+                        claim_b=f"Workshop facility photo shows approximately {photo_count} worker(s) present",
+                        severity=ContradictionSeverity.WARNING,
+                        explanation=f"Visual evidence discrepancy: Declared workforce ({total_staff}) differs notably from observed on-site workers ({photo_count}) in facility photo.",
+                    )
+                )
+
     # =========================================================================
     # 2. GEMINI SEMANTIC & CROSS-DOCUMENT CHECKS
     # =========================================================================
@@ -109,25 +107,26 @@ def detect_contradictions(
     audit_payload = {
         "application_data": pack.application.model_dump() if pack.application else None,
         "impact_data": pack.impact.model_dump() if pack.impact else None,
+        "workshop_observations": workshop_data.model_dump() if workshop_data else None,
         "identified_gaps": [g.model_dump() for g in pack.gaps],
     }
 
+    schema_prompt = f"\nRETURN ONLY VALID JSON MATCHING THIS EXACT SCHEMA:\n{json.dumps(SemanticContradictionResponse.model_json_schema(), default=str)}"
     user_prompt = f"""Perform a deep forensic contradiction audit on this application pack:
 
 APPLICATION FILE:
 {json.dumps(audit_payload, indent=2, ensure_ascii=False)}
-
-Identify all semantic discrepancies and return the SemanticContradictionResponse JSON."""
+{schema_prompt}"""
 
     config = types.GenerateContentConfig(
         system_instruction=CONTRADICTION_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=sanitize_schema_for_gemini(SemanticContradictionResponse),
         temperature=0.0,
     )
 
     try:
-        response = ai_client.models.generate_content(
+        response, _ = call_gemini_with_fallback(
+            client=ai_client,
             model=model,
             contents=[types.Part.from_text(text=user_prompt)],
             config=config,
@@ -135,13 +134,17 @@ Identify all semantic discrepancies and return the SemanticContradictionResponse
         raw_text = response.text if response and hasattr(response, "text") else ""
     except Exception:
         raw_text = ""
+
     if raw_text:
         try:
             semantic_res = SemanticContradictionResponse.model_validate_json(raw_text)
             contradictions.extend(semantic_res.contradictions)
-        except Exception:
-            data = json.loads(raw_text)
-            semantic_res = SemanticContradictionResponse.model_validate(data)
-            contradictions.extend(semantic_res.contradictions)
+        except (ValidationError, json.JSONDecodeError):
+            try:
+                data = json.loads(raw_text)
+                semantic_res = SemanticContradictionResponse.model_validate(data)
+                contradictions.extend(semantic_res.contradictions)
+            except Exception:
+                pass
 
     return contradictions

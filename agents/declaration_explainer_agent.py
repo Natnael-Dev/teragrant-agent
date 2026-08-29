@@ -6,15 +6,15 @@ and generates verbal consent reading scripts. Strictly enforces zero-automated c
 
 import json
 from typing import Optional, Any
+from pydantic import ValidationError
+
 from google.genai import types
 
-from extractors.config import get_gemini_client
+from extractors.config import get_gemini_client, call_gemini_with_fallback
 from schemas.application_schema import MandatoryDeclarations
 from schemas.consent_schema import ConsentPackage, DeclarationExplanation
-from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
-# The 3 most critical legal declarations selected for grassroots verbal explanation
 CRITICAL_DECLARATIONS = [
     {
         "id": "declaration_05_anti_bribery_corruption",
@@ -42,30 +42,18 @@ The explanation MUST:
 =============================================================================
 CRITICAL ANTI-AUTOMATION & CONSENT INTEGRITY RULE:
 =============================================================================
-You are generating the SCRIPT for a voice agent to read. YOU MUST NEVER TICK THE CHECKBOX. The output is only the text to be spoken. The actual checkbox can ONLY be ticked after the human applicant explicitly hears the question and gives verifiable verbal agreement.
-
-Respond strictly in JSON matching the ConsentPackage schema."""
+You are generating the SCRIPT for a voice agent to read. YOU MUST NEVER TICK THE CHECKBOX. The output is only the text to be spoken. The actual checkbox can ONLY be ticked after the human applicant explicitly hears the question and gives verifiable verbal agreement."""
 
 
 def generate_consent_package(
     declarations: Optional[MandatoryDeclarations] = None,
     detected_language: str = "Amharic",
-    model: str = "gemini-2.0-flash",
+    model: Optional[str] = None,
     api_key: Optional[str] = None,
     client: Optional[Any] = None,
 ) -> ConsentPackage:
     """
     Generates plain-language verbal explanation scripts and consent questions in the applicant's language.
-
-    Args:
-        declarations: Optional MandatoryDeclarations instance.
-        detected_language: Target spoken language ('Amharic', 'Oromo' / 'Afaan Oromo', 'English').
-        model: Gemini model identifier.
-        api_key: Optional API key override.
-        client: Optional pre-configured genai Client.
-
-    Returns:
-        ConsentPackage: Pydantic model with 3 translated verbal explanation scripts and anti-auto-tick warning.
     """
     ai_client = client or get_gemini_client(api_key=api_key)
 
@@ -76,22 +64,22 @@ def generate_consent_package(
         "covenants_to_translate": CRITICAL_DECLARATIONS,
     }
 
+    schema_prompt = f"\nRETURN ONLY VALID JSON MATCHING THIS EXACT SCHEMA:\n{json.dumps(ConsentPackage.model_json_schema(), default=str)}"
     user_prompt = f"""Translate and simplify these 3 critical declarations for verbal voice explanation in {detected_language}:
 
 DECLARATIONS:
 {json.dumps(user_payload, indent=2, ensure_ascii=False)}
-
-Respond strictly in JSON matching the ConsentPackage schema."""
+{schema_prompt}"""
 
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         response_mime_type="application/json",
-        response_schema=sanitize_schema_for_gemini(ConsentPackage),
         temperature=0.0,
     )
 
     try:
-        response = ai_client.models.generate_content(
+        response, _ = call_gemini_with_fallback(
+            client=ai_client,
             model=model,
             contents=[types.Part.from_text(text=user_prompt)],
             config=config,
@@ -99,8 +87,8 @@ Respond strictly in JSON matching the ConsentPackage schema."""
         raw_text = response.text if response and hasattr(response, "text") else ""
     except Exception:
         raw_text = ""
+
     if not raw_text:
-        # High quality fallback scripts for offline/testing resilience
         fallback_explanations = _build_fallback_consent(detected_language)
         return ConsentPackage(
             explanations=fallback_explanations,
@@ -108,12 +96,17 @@ Respond strictly in JSON matching the ConsentPackage schema."""
         )
 
     try:
-        consent_pkg = ConsentPackage.model_validate_json(raw_text)
-    except Exception:
-        data = json.loads(raw_text)
-        consent_pkg = ConsentPackage.model_validate(data)
-
-    return consent_pkg
+        return ConsentPackage.model_validate_json(raw_text)
+    except (ValidationError, json.JSONDecodeError):
+        try:
+            data = json.loads(raw_text)
+            return ConsentPackage.model_validate(data)
+        except Exception:
+            fallback_explanations = _build_fallback_consent(detected_language)
+            return ConsentPackage(
+                explanations=fallback_explanations,
+                overall_warning="CRITICAL CONSTRAINT: This package contains verbal explanation scripts for the voice agent only. Checkboxes MUST NEVER be auto-ticked. Consent must be explicitly and verifiably confirmed by the applicant."
+            )
 
 
 def _build_fallback_consent(language: str) -> list[DeclarationExplanation]:

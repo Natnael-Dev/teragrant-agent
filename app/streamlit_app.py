@@ -2,9 +2,9 @@
 TeraGrant Agent — AI Intake & Evaluation Platform
 AI Builder Hackathon 2026 | Challenge 1 (SME Grant Automation)
 
-An end-to-end multi-agent system that converts informal voice notes and trade license photos
-into fundable, audit-grade grant application packs, scores them across a 100-point matrix,
-detects discrepancies, and defends ranked shortlists.
+An end-to-end multi-agent system that converts informal voice notes, trade license photos,
+and workshop facility images into fundable, audit-grade grant application packs,
+scores them across a 100-point matrix, detects discrepancies, and defends ranked shortlists.
 """
 
 import base64
@@ -22,8 +22,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from extractors.schemas import LicenseExtraction, AudioTranscriptExtraction
+from extractors.config import MODEL_FALLBACK_CHAIN
+from extractors.schemas import LicenseExtraction, WorkshopExtraction, AudioTranscriptExtraction
 from extractors.vision_extractor import extract_license_data
+from extractors.workshop_extractor import extract_workshop_data
 from extractors.audio_extractor import extract_audio_story
 from schemas.application_schema import (
     ApplicationSchema,
@@ -136,15 +138,16 @@ with st.sidebar:
 
     model_choice = st.selectbox(
         "Gemini Foundation Model",
-        options=["gemini-2.0-flash", "gemini-1.5-flash"],
+        options=MODEL_FALLBACK_CHAIN,
         index=0,
-        help="Select the Gemini multimodal reasoning model."
+        help="Select the Gemini multimodal reasoning model (defaults to gemini-3.6-flash with automatic 404 failover)."
     )
 
     st.divider()
     st.markdown("### 🧩 Agent Architecture")
     st.markdown("""
     - **Vision OCR Agent** (Zero-Hallucination)
+    - **Workshop Evaluator** (Visual Asset Cross-Check)
     - **Audio Transcriber** (Amharic / Oromo / Eng)
     - **Intake & Gap Mapper** (Form Normalizer)
     - **Deterministic Gate** (Pure Python 15-Check)
@@ -174,7 +177,7 @@ with tab1:
     st.markdown('<div class="sub-header">Upload a voice note or record live. The Agent listens and fills the official GIZ SME Support Scheme form in real-time.</div>', unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # STEP 3: MODE SELECTOR AT TOP OF TAB 1
+    # MODE SELECTOR AT TOP OF TAB 1
     # -------------------------------------------------------------------------
     mode_choice = st.radio(
         "Select Operating Mode:",
@@ -230,18 +233,18 @@ with tab1:
         is_agent_active = st.session_state.get("is_active", False)
         render_heartbeat(is_active=is_agent_active, height=65)
 
-        # 1. Live Voice Recording via Microphone
+        # 1. Live Voice Recording via Microphone (Priority)
         st.markdown("##### 1. Live Voice Recording (Microphone)")
         try:
             live_audio = st.audio_input("Record your business story (Amharic / Oromo / English)")
         except Exception:
             live_audio = None
 
-        # 2. Upload Audio File (Fallback)
+        # 2. Upload Audio File (Whitelist: mp3, wav, m4a, ogg, oga, webm)
         st.markdown("##### 2. Or Upload Voice Note File")
         uploaded_audio = st.file_uploader(
-            "Upload Voice File (.mp3/.wav/.m4a)",
-            type=["mp3", "wav", "m4a", "ogg"],
+            "Upload Voice File (.mp3/.wav/.m4a/.ogg/.oga/.webm)",
+            type=["mp3", "wav", "m4a", "ogg", "oga", "webm"],
             key="audio_uploader"
         )
 
@@ -253,8 +256,16 @@ with tab1:
             key="license_uploader"
         )
 
-        # 4. Spoken Language
-        st.markdown("##### 4. Spoken Language")
+        # 4. Workshop Facility Photo (Batch 9 requirement)
+        st.markdown("##### 4. Workshop / Facility Photo (Optional)")
+        uploaded_workshop = st.file_uploader(
+            "Upload Workshop Facility Photo (.jpg/.png)",
+            type=["jpg", "jpeg", "png", "webp"],
+            key="workshop_uploader"
+        )
+
+        # 5. Spoken Language
+        st.markdown("##### 5. Spoken Language")
         intake_language = st.radio(
             "Language",
             options=["Amharic", "Oromo", "English"],
@@ -273,7 +284,7 @@ with tab1:
             st.error("❌ Gemini API Key is required for Live Mode! Please enter it in the sidebar.")
             st.stop()
 
-        # Step 4.3: Audio Wiring (Mic WAV bytes vs Uploaded File)
+        # Audio priority: Live mic recording ALWAYS takes priority over file upload
         audio_bytes = None
         audio_ext = ".wav"
         if live_audio:
@@ -281,7 +292,7 @@ with tab1:
             audio_ext = ".wav"
         elif uploaded_audio:
             audio_bytes = uploaded_audio.read()
-            audio_ext = Path(uploaded_audio.name).suffix
+            audio_ext = Path(uploaded_audio.name).suffix.lower()
         else:
             st.error("❌ Please record with your microphone or upload a voice note first.")
             st.stop()
@@ -309,29 +320,42 @@ with tab1:
                         extraction_notes="No official commercial license document uploaded."
                     )
 
-                # 3. Multimodal Mapping & Gap Analysis
+                # 3. Workshop extraction if workshop photo uploaded
+                workshop_data = None
+                if uploaded_workshop:
+                    with tempfile.NamedTemporaryFile(suffix=Path(uploaded_workshop.name).suffix, delete=False) as tmp_ws:
+                        tmp_ws.write(uploaded_workshop.read())
+                        tmp_ws_path = tmp_ws.name
+                    workshop_data = extract_workshop_data(image_path=tmp_ws_path, model=model_choice)
+
+                # 4. Multimodal Mapping & Gap Analysis
                 pack = generate_application_pack(
                     license_data=license_data,
                     audio_data=audio_data,
+                    workshop_data=workshop_data,
                     model=model_choice
                 )
 
-                # 4. Deterministic Eligibility Gate (Pure Python)
+                # 5. Deterministic Eligibility Gate (Pure Python)
                 gate = run_eligibility_gate(pack.application)
 
-                # 5. Forensic Contradiction Detection
-                contradictions = detect_contradictions(pack=pack, model=model_choice)
+                # 6. Forensic Contradiction Detection (Cross-checks photo vs declared staff)
+                contradictions = detect_contradictions(
+                    pack=pack,
+                    workshop_data=workshop_data,
+                    model=model_choice
+                )
 
-                # 6. Grid Track Router
+                # 7. Grid Track Router
                 if pack.application and pack.impact:
                     grid_variant = route_to_grid_variant(pack.application, pack.impact, model=model_choice)
                 else:
                     grid_variant = GridVariant.GENERAL_SME
 
-                # 7. 100-Point Reviewer Scorer
+                # 8. 100-Point Reviewer Scorer
                 scoring_result = score_application(pack=pack, variant=grid_variant, model=model_choice)
 
-                # 8. Map purely real extracted data to Digital Twin Form
+                # 9. Map purely real extracted data to Digital Twin Form
                 app_data = pack.application
                 imp_data = pack.impact
                 b_info = app_data.business_info if app_data else None
@@ -363,9 +387,13 @@ with tab1:
                 st.rerun()
 
             except Exception as e:
+                # LIVE-MODE PURITY: On any exception, reset form state to empty
+                st.session_state["extracted_data"] = {}
+                st.session_state["latest_pack"] = None
+                st.session_state["latest_score"] = None
+                st.session_state["latest_contradictions"] = []
                 st.session_state["is_active"] = False
-                # ZERO-FAKE-DATA RULE: Never fall back to mock data in Live Mode
-                st.error(f"❌ Live API failed: {str(e)}. No fake data will be shown in Live Mode.")
+                st.error(f"Live API failed: {str(e)}. No fake data shown in Live Mode.")
 
     # -------------------------------------------------------------------------
     # LEFT COLUMN: DIGITAL TWIN FORM & POST-EVALUATION METRICS
@@ -379,7 +407,7 @@ with tab1:
         render_giz_form(session_data=current_data, height=580)
 
         # Post-Evaluation Results Section (Only rendered after real processing or explicit rehearsal loading)
-        if "latest_score" in st.session_state:
+        if st.session_state.get("latest_score"):
             score_res: ScoringResult = st.session_state["latest_score"]
             pack_res: ApplicationPack = st.session_state["latest_pack"]
             contra_res: list = st.session_state.get("latest_contradictions", [])
@@ -402,7 +430,7 @@ with tab1:
             with m3:
                 st.metric(label="Gate Verdict", value="PASSED" if score_res.eligibility_gate.is_eligible else "FAILED")
             with m4:
-                st.metric(label="Missing Gaps", value=f"{len(pack_res.gaps)} Flagged")
+                st.metric(label="Missing Gaps", value=f"{len(pack_res.gaps) if pack_res else 0} Flagged")
 
             # 1. Eligibility Gate Status
             if score_res.eligibility_gate.is_eligible:
@@ -423,7 +451,7 @@ with tab1:
 
             # 3. Explicit Gap List (Zero-Hallucination Audit)
             st.subheader("📋 Identified Information Gaps (Zero-Hallucination)")
-            if pack_res.gaps:
+            if pack_res and pack_res.gaps:
                 st.warning(f"⚠️ **The AI identified {len(pack_res.gaps)} missing/unverified data points and strictly REFUSED to hallucinate them:**")
                 for g in pack_res.gaps:
                     badge = "🔴 HIGH PRIORITY" if g.priority == GapPriority.HIGH else ("🟡 MEDIUM" if g.priority == GapPriority.MEDIUM else "🟢 LOW")

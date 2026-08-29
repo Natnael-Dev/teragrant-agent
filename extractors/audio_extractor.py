@@ -1,113 +1,78 @@
 """
-Audio Extractor for Multilingual Voice Notes (Amharic, Afaan Oromo, English, etc.).
-Uses Gemini multimodal audio understanding with zero-hallucination fact extraction.
+Audio Extractor Agent for Multilingual Voice Intake.
+Transcribes and extracts business narrative facts from spoken audio in Amharic, Afaan Oromo, English, etc.
 """
 
 import json
-import mimetypes
 from pathlib import Path
 from typing import Optional, Any
+from pydantic import ValidationError
 
 from google.genai import types
 
-from .config import get_gemini_client
+from .config import get_gemini_client, call_gemini_with_fallback
 from .schemas import AudioTranscriptExtraction
-from utils.schema_sanitizer import sanitize_schema_for_gemini
 
 
 AUDIO_SYSTEM_PROMPT = """You are an expert multilingual audio transcriber and SME grant analyst specializing in Ethiopian and East African languages (Amharic, Afaan Oromo, English, Tigrinya, Somali).
 
-Your task is twofold:
-1. Provide a verbatim or near-verbatim transcription of the spoken audio note in its original language.
-2. Extract verified factual business entities explicitly mentioned by the speaker.
+Your objective is to:
+1. Provide an accurate transcription of the audio.
+2. Identify the language spoken.
+3. Extract core factual information explicitly mentioned by the speaker (business name, employee count, product type, location, financial figures, impact goals).
 
-CRITICAL ANTI-HALLUCINATION & PRECISION RULES:
-1. Transcribe the audio faithfully. If words are muffled or unclear, transcribe as best as possible without inventing content.
-2. Accurately detect the primary spoken language (e.g., 'Amharic', 'Afaan Oromo', 'English', 'Tigrinya', 'Somali').
-3. For structured facts (employee_count, product_type, location, business_name, financial_figures):
-   - ONLY extract values if the speaker explicitly states them.
-   - If the speaker does not state an employee count, set "employee_count": null.
-   - If no financial numbers are mentioned, set "financial_figures": [].
-   - DO NOT extrapolate, assume, or fabricate any missing numbers, products, or locations.
-4. "impact_summary" should summarize the operational story, challenges, and proposed project as communicated by the applicant.
-"""
-
-AUDIO_EXTRACTION_PROMPT = """Listen carefully to the attached voice note.
-Perform full transcription and structured fact extraction.
-Output the result strictly in JSON matching the following schema:
-- transcript: Full text of what the speaker said.
-- detected_language: Primary language identified (e.g. 'Amharic', 'Afaan Oromo', 'English').
-- business_name: Business name if explicitly spoken, or null.
-- employee_count: Exact integer headcount mentioned, or null.
-- product_type: Core products or services described, or null.
-- location: Operating location/region mentioned, or null.
-- financial_figures: List of any revenue, expense, or grant funding amounts stated.
-- impact_summary: Concise synopsis of their business story and objectives.
-
-Respond ONLY with a valid JSON object matching the requested schema."""
+CRITICAL ANTI-HALLUCINATION RULES:
+1. ONLY extract numbers, headcount, and names that are explicitly spoken.
+2. Do NOT invent missing financial figures or employee statistics.
+3. If a field was not mentioned in the audio, return null for that field."""
 
 
 def extract_audio_story(
     audio_path: str,
-    model: str = "gemini-2.0-flash",
+    model: Optional[str] = None,
     api_key: Optional[str] = None,
     client: Optional[Any] = None,
 ) -> AudioTranscriptExtraction:
     """
-    Extract transcript and structured business facts from an audio voice note using Gemini.
-
-    Args:
-        audio_path: Absolute or relative path to the audio file (mp3, wav, m4a, ogg).
-        model: Gemini model identifier (default: "gemini-2.0-flash").
-        api_key: Optional Gemini API key override.
-        client: Optional pre-configured genai Client (useful for unit testing/mocking).
-
-    Returns:
-        AudioTranscriptExtraction: Validated Pydantic model with transcript and structured facts.
-
-    Raises:
-        FileNotFoundError: If the specified audio file path does not exist.
+    Transcribes audio and extracts structured business facts from the spoken voice note.
     """
     file_path = Path(audio_path)
     if not file_path.exists():
-        raise FileNotFoundError(f"Audio file not found at path: {audio_path}")
+        raise FileNotFoundError(f"Audio file not found at: {audio_path}")
 
-    # Determine MIME type
-    mime_type, _ = mimetypes.guess_type(str(file_path))
-    if not mime_type:
-        ext = file_path.suffix.lower()
-        mime_map = {
-            ".mp3": "audio/mp3",
-            ".wav": "audio/wav",
-            ".m4a": "audio/m4a",
-            ".ogg": "audio/ogg",
-            ".flac": "audio/flac",
-        }
-        mime_type = mime_map.get(ext, "audio/mp3")
-
-    # Read binary bytes
     with open(file_path, "rb") as f:
         audio_bytes = f.read()
 
-    # Get client
+    ext = file_path.suffix.lower()
+    mime_type_map = {
+        ".mp3": "audio/mp3",
+        ".wav": "audio/wav",
+        ".m4a": "audio/m4a",
+        ".ogg": "audio/ogg",
+        ".oga": "audio/ogg",
+        ".webm": "audio/webm",
+    }
+    mime_type = mime_type_map.get(ext, "audio/mp3")
+
     ai_client = client or get_gemini_client(api_key=api_key)
 
-    # Prepare multimodal content
-    contents = [
-        types.Part.from_bytes(data=audio_bytes, mime_type=mime_type),
-        types.Part.from_text(text=AUDIO_EXTRACTION_PROMPT),
-    ]
+    audio_part = types.Part.from_bytes(
+        data=audio_bytes,
+        mime_type=mime_type,
+    )
+    schema_instruction = f"\nRETURN ONLY VALID JSON MATCHING THIS EXACT SCHEMA:\n{json.dumps(AudioTranscriptExtraction.model_json_schema(), default=str)}"
+    text_prompt = "Transcribe this voice note and extract verified facts.\n" + schema_instruction
+    contents = [audio_part, types.Part.from_text(text=text_prompt)]
 
-    # Configure structured generation
     config = types.GenerateContentConfig(
         system_instruction=AUDIO_SYSTEM_PROMPT,
         response_mime_type="application/json",
-        response_schema=sanitize_schema_for_gemini(AudioTranscriptExtraction),
         temperature=0.0,
     )
 
     try:
-        response = ai_client.models.generate_content(
+        response, _ = call_gemini_with_fallback(
+            client=ai_client,
             model=model,
             contents=contents,
             config=config,
@@ -117,18 +82,37 @@ def extract_audio_story(
         return AudioTranscriptExtraction(
             transcript="",
             detected_language="Unknown",
-            impact_summary=f"Audio model temporarily unavailable or rate-limited: {str(err)}"
+            impact_summary=f"Audio extraction error: {str(err)}"
         )
 
     if not raw_text:
         return AudioTranscriptExtraction(
             transcript="",
             detected_language="Unknown",
-            impact_summary="Failed to transcribe or extract audio story."
+            impact_summary="Empty response received from audio model."
         )
 
     try:
         return AudioTranscriptExtraction.model_validate_json(raw_text)
-    except Exception:
-        data = json.loads(raw_text)
-        return AudioTranscriptExtraction.model_validate(data)
+    except (ValidationError, json.JSONDecodeError) as err:
+        try:
+            retry_prompt = f"Your previous JSON was invalid: {str(err)}. Return corrected JSON matching schema:\n{json.dumps(AudioTranscriptExtraction.model_json_schema(), default=str)}"
+            retry_contents = [types.Part.from_text(text=retry_prompt), types.Part.from_text(text=raw_text)]
+            retry_resp, _ = call_gemini_with_fallback(
+                client=ai_client,
+                model=model,
+                contents=retry_contents,
+                config=config,
+            )
+            retry_text = retry_resp.text if retry_resp and hasattr(retry_resp, "text") else ""
+            return AudioTranscriptExtraction.model_validate_json(retry_text)
+        except Exception:
+            try:
+                data = json.loads(raw_text)
+                return AudioTranscriptExtraction.model_validate(data)
+            except Exception:
+                return AudioTranscriptExtraction(
+                    transcript=raw_text[:200],
+                    detected_language="Unknown",
+                    impact_summary="Failed to parse structured audio output."
+                )
