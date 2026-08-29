@@ -1,9 +1,9 @@
 """
-TeraGrant Agent — AI Intake & Evaluation Platform (Batch 27 Visual Repair).
+TeraGrant Agent — AI Intake & Evaluation Platform (Batch 28-R2 Pure HTML Home + Query Router).
 AI Builder Hackathon 2026 | Challenge 1 (SME Grant Automation)
 
-Figma-faithful Home (Image 11), Step 1 (Image 12), and Step 2 (Image 14) with unified theme,
-zero ghost boxes, light-mode sidebar and buttons, and preserved downstream full-challenge engine.
+Figma-faithful Home page as ONE pure HTML/CSS block with query-param routing,
+zero Streamlit widget artifacts on Home, and fully preserved downstream challenge engine.
 """
 
 import base64
@@ -113,8 +113,8 @@ I18N = {
         "step2_desc": "Take photos of your licence and workshop.",
         "step3_title": "Verify",
         "step3_desc": "We build the application and show what still needs proof.",
-        "btn_start": "🎙️ Start Application >",
-        "btn_reviewer": "👥 Reviewer Dashboard",
+        "btn_start": "Start Application ›",
+        "btn_reviewer": "Reviewer Dashboard",
         "legend_title": "EVIDENCE STATUS KEY",
         "legend_verified": "Supported by an uploaded document",
         "legend_stated": "Provided by the applicant",
@@ -136,8 +136,8 @@ I18N = {
         "step2_desc": "የንግድ ፈቃድዎን እና የስራ ቦታዎን ፎቶዎች ያንሱ።",
         "step3_title": "ያረጋግጡ",
         "step3_desc": "ማመልከቻውን አዘጋጅተን ማረጋገጫ የሚያስፈልጋቸውን እናሳያለን።",
-        "btn_start": "🎙️ ማመልከቻ ይጀምሩ >",
-        "btn_reviewer": "👥 የገምጋሚ ዳሽቦርድ",
+        "btn_start": "ማመልከቻ ይጀምሩ ›",
+        "btn_reviewer": "የገምጋሚ ዳሽቦርድ",
         "legend_title": "የማስረጃ ሁኔታ ቁልፍ (EVIDENCE STATUS KEY)",
         "legend_verified": "በተያያዘ ሰነድ የተረጋገጠ",
         "legend_stated": "በአመልካቹ በድምጽ የተገለጸ",
@@ -159,8 +159,8 @@ I18N = {
         "step2_desc": "Suuraa heeyyama daldalaa fi iddoo hojii keessanii kaasaa.",
         "step3_title": "Mirkaneessaa",
         "step3_desc": "Iyyannoo ijaarree wantoota ragaa barbaadan isiniif agarsiifna.",
-        "btn_start": "🎙️ Iyyannoo Jalqabaa >",
-        "btn_reviewer": "👥 Daashboordii Gamaggamaa",
+        "btn_start": "Iyyannoo Jalqabaa ›",
+        "btn_reviewer": "Daashboordii Gamaggamaa",
         "legend_title": "KALLATTII HAALA RAGAA (EVIDENCE STATUS KEY)",
         "legend_verified": "Ragaa galmeetiin mirkanaa'e",
         "legend_stated": "Iyyataadhaan kan dubbatame",
@@ -177,7 +177,7 @@ I18N = {
 
 
 # =============================================================================
-# PAGE CONFIGURATION & UNIFIED THEME
+# PAGE CONFIGURATION & THEME
 # =============================================================================
 st.set_page_config(
     page_title="TeraGrant — Talk. Upload. Verify. Score. Defend.",
@@ -190,14 +190,42 @@ apply_theme()
 
 
 # =============================================================================
-# INITIALIZE SESSION STATE & NAVIGATION ROUTER
+# STEP 1: QUERY-PARAM ROUTER
 # =============================================================================
+raw_page = st.query_params.get("page", "home")
+raw_lang = st.query_params.get("lang", "en")
+
+# Normalize language
+if raw_lang in ["am", "amharic", "Amharic"]:
+    cur_lang_code = "am"
+    st.session_state["lang"] = "Amharic"
+elif raw_lang in ["om", "oromo", "Oromo", "afaan_oromoo"]:
+    cur_lang_code = "om"
+    st.session_state["lang"] = "Oromo"
+else:
+    cur_lang_code = "en"
+    st.session_state["lang"] = "English"
+
+# Normalize page
+if raw_page == "home":
+    st.session_state["page"] = "home"
+elif raw_page.startswith("step"):
+    st.session_state["page"] = "my_application"
+    try:
+        st.session_state["step"] = int(raw_page[4:])
+    except ValueError:
+        st.session_state["step"] = 1
+elif raw_page in ["reviewer", "batch_review"]:
+    st.session_state["page"] = "batch_review"
+elif raw_page in ["evidence", "evidence_library"]:
+    st.session_state["page"] = "evidence_library"
+elif raw_page in ["myapp", "my_application"]:
+    st.session_state["page"] = "my_application"
+
 if "page" not in st.session_state:
     st.session_state["page"] = "home"
 if "step" not in st.session_state:
     st.session_state["step"] = 1
-if "lang" not in st.session_state:
-    st.session_state["lang"] = "English"
 if "batch_portfolio" not in st.session_state:
     sample_path = PROJECT_ROOT / "data" / "sample_batch_12_applicants.json"
     if sample_path.exists():
@@ -206,195 +234,408 @@ if "batch_portfolio" not in st.session_state:
     else:
         st.session_state["batch_portfolio"] = []
 
-
-# =============================================================================
-# APP SHELL: SIDEBAR NAVIGATION & DEVELOPER MODE
-# =============================================================================
-cur_lang = st.session_state["lang"]
+cur_lang = st.session_state.get("lang", "English")
 t = I18N.get(cur_lang, I18N["English"])
 
-with st.sidebar:
-    st.markdown("""
-    <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
-        <span style="font-size:22px;">🌱</span>
-        <span style="font-size:16px; font-weight:800; color:#111827;">TeraGrant Agent</span>
-    </div>
-    <div style="font-size:10.5px; color:#059669; font-weight:700; margin-bottom:16px;">
-        ● Verified Agent Active
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Navigation Buttons
-    cur_page = st.session_state.get("page", "home")
-
-    if st.button(t["nav_home"], use_container_width=True, type="primary" if cur_page == "home" else "secondary"):
-        st.session_state["page"] = "home"
-        st.rerun()
-
-    if st.button(t["nav_app"], use_container_width=True, type="primary" if cur_page == "my_application" else "secondary"):
-        st.session_state["page"] = "my_application"
-        st.session_state["step"] = 1
-        st.rerun()
-
-    if st.button(t["nav_review"], use_container_width=True, type="primary" if cur_page == "batch_review" else "secondary"):
-        st.session_state["page"] = "batch_review"
-        st.rerun()
-
-    if st.button(t["nav_evidence"], use_container_width=True, type="primary" if cur_page == "evidence_library" else "secondary"):
-        st.session_state["page"] = "evidence_library"
-        st.rerun()
-
-    st.markdown("---")
-
-    # Developer Mode Expander (Collapsed)
-    with st.expander("🛠 Developer Mode", expanded=False):
-        env_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
-        dev_api_key = st.text_input(
-            "Gemini API Key",
-            value=st.session_state.get("api_key", env_api_key),
-            type="password",
-        )
-        if dev_api_key:
-            st.session_state["api_key"] = dev_api_key
-            os.environ["GEMINI_API_KEY"] = dev_api_key
-
-        model_choice = st.selectbox(
-            "Model Fallback Lead",
-            options=["gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.5-pro"],
-            index=0,
-        )
-        st.session_state["lead_model"] = model_choice
-
-        if st.button("🔍 Test API Connection", use_container_width=True):
-            with st.spinner("Connecting to Google Gemini v1 API..."):
-                try:
-                    curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
-                    client = get_gemini_client(api_key=curr_key)
-                    models_iter = list(client.models.list())
-                    st.success(f"✅ Connected! Available models: {len(models_iter)}")
-                except Exception as e:
-                    st.error(f"❌ Connection Failed: {str(e)}")
-
-        st.markdown("##### ⚡ Test Presets")
-        if st.button("🎲 Unseen Applicant Test", use_container_width=True):
-            st.session_state["preset_loaded"] = "unseen"
-            st.toast("Loaded Unseen Applicant test assets!")
-
-        rehearsal_toggle = st.checkbox("Enable Rehearsal Backup Mode", value=False)
-        st.session_state["rehearsal_mode"] = rehearsal_toggle
-
 
 # =============================================================================
-# SCREEN S0: RESTYLED HOME PAGE (Figma Image 11)
+# STEP 2: HOME AS ONE PURE HTML BLOCK (Figma Image 11 Ground Truth)
 # =============================================================================
 if st.session_state["page"] == "home":
-    col_t_l, col_t_r = st.columns([2, 1])
-    with col_t_l:
-        st.markdown("""
-        <div style="display:flex; align-items:center; gap:6px; font-weight:800; font-size:14px; color:#111827;">
-            <span style="color:#059669; font-size:18px;">🌱</span> TeraGrant Agent
-        </div>
-        """, unsafe_allow_html=True)
-    with col_t_r:
-        st.markdown("<div style='text-align:right; font-size:11px; color:#059669; font-weight:700;'>● Gemini Connected</div>", unsafe_allow_html=True)
+    active_en = "active" if cur_lang_code == "en" else ""
+    active_am = "active" if cur_lang_code == "am" else ""
+    active_om = "active" if cur_lang_code == "om" else ""
 
-    # Language Switcher
-    col_lp1, col_lp2, col_lp3 = st.columns(3)
-    with col_lp1:
-        if st.button("English", key="home_lang_en", use_container_width=True, type="primary" if cur_lang == "English" else "secondary"):
-            st.session_state["lang"] = "English"
-            st.rerun()
-    with col_lp2:
-        if st.button("አማርኛ", key="home_lang_am", use_container_width=True, type="primary" if cur_lang == "Amharic" else "secondary"):
-            st.session_state["lang"] = "Amharic"
-            st.rerun()
-    with col_lp3:
-        if st.button("Afaan Oromoo", key="home_lang_or", use_container_width=True, type="primary" if cur_lang == "Oromo" else "secondary"):
-            st.session_state["lang"] = "Oromo"
-            st.rerun()
+    home_html = f"""
+    <style>
+        [data-testid="stSidebar"] {{ display: none !important; }}
+        .home-wrapper {{
+            max-width: 760px;
+            margin: 0 auto;
+            padding-top: 4vh;
+            font-family: 'Inter', 'Noto Sans Ethiopic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #111827;
+        }}
+        .home-topbar {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0 20px 0;
+        }}
+        .home-brand {{
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+        }}
+        .home-status {{
+            font-size: 12px;
+            color: #059669;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }}
+        .home-status a {{
+            color: #6B7280;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 12px;
+        }}
+        .home-status a:hover {{
+            color: #111827;
+        }}
+        .lang-segmented-bar {{
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 10px;
+            padding: 3px;
+            display: flex;
+            width: 270px;
+            margin: 0 auto 24px auto;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }}
+        .lang-pill-link {{
+            flex: 1;
+            text-align: center;
+            padding: 6px 0;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6B7280;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+        }}
+        .lang-pill-link.active {{
+            background: #111827;
+            color: #FFFFFF !important;
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }}
+        .home-hero-h1 {{
+            font-size: 40px;
+            font-weight: 800;
+            color: #111827;
+            line-height: 1.15;
+            letter-spacing: -0.8px;
+            margin-bottom: 10px;
+            text-align: center;
+        }}
+        .home-hero-sub {{
+            font-size: 14px;
+            color: #6B7280;
+            max-width: 480px;
+            margin: 0 auto 32px auto;
+            line-height: 1.45;
+            text-align: center;
+        }}
+        .home-cards-row {{
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 32px;
+        }}
+        .home-step-box {{
+            flex: 1;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            border-radius: 16px;
+            padding: 18px 16px;
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }}
+        .home-step-icon-wrap {{
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }}
+        .home-step-num {{
+            font-size: 12px;
+            color: #9CA3AF;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }}
+        .home-step-title {{
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 6px;
+        }}
+        .home-step-desc {{
+            font-size: 12px;
+            color: #6B7280;
+            line-height: 1.4;
+        }}
+        .home-cta-row {{
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 48px;
+        }}
+        .btn-primary-link {{
+            background: #059669;
+            color: #FFFFFF !important;
+            height: 44px;
+            padding: 0 24px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.15s ease;
+        }}
+        .btn-primary-link:hover {{
+            background: #047857;
+        }}
+        .btn-secondary-link {{
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            color: #111827 !important;
+            height: 44px;
+            padding: 0 24px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }}
+        .btn-secondary-link:hover {{
+            background: #F9FAFB;
+            border-color: #D1D5DB;
+        }}
+        .home-legend-wrap {{
+            max-width: 640px;
+            margin: 0 auto 32px auto;
+            text-align: left;
+        }}
+        .home-legend-title {{
+            font-size: 10px;
+            font-weight: 800;
+            color: #6B7280;
+            letter-spacing: 0.8px;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }}
+        .home-legend-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 16px;
+            font-size: 11px;
+            color: #4B5563;
+        }}
+        .legend-item {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+    </style>
 
-    # Hero
-    st.markdown(f"""
-    <div style="text-align:center; margin-top: 1rem; margin-bottom: 2rem;">
-        <div style="font-size: 2.5rem; font-weight: 800; color: #111827; letter-spacing: -0.8px; margin-bottom: 0.5rem; line-height: 1.2;">
-            {t["hero_title"]}
+    <div class="home-wrapper">
+        <!-- Top Bar -->
+        <div class="home-topbar">
+            <div class="home-brand">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>TeraGrant Agent</span>
+            </div>
+            <div class="home-status">
+                <span>● Gemini Connected</span>
+                <a href="?page=reviewer">Reviewer</a>
+            </div>
         </div>
-        <div style="font-size: 1.05rem; color: #6B7280; max-width: 560px; margin: 0 auto; line-height: 1.4;">
-            {t["hero_subtitle"]}
+
+        <!-- Language Segmented Control -->
+        <div class="lang-segmented-bar">
+            <a class="lang-pill-link {active_en}" href="?lang=en&page=home">English</a>
+            <a class="lang-pill-link {active_am}" href="?lang=am&page=home">አማርኛ</a>
+            <a class="lang-pill-link {active_om}" href="?lang=om&page=home">Afaan Oromoo</a>
+        </div>
+
+        <!-- Hero -->
+        <div class="home-hero-h1">{t["hero_title"]}</div>
+        <div class="home-hero-sub">{t["hero_subtitle"]}</div>
+
+        <!-- 3 Step Cards -->
+        <div class="home-cards-row">
+            <!-- Card 1: Speak -->
+            <div class="home-step-box">
+                <div class="home-step-icon-wrap" style="background:#EFF6FF; color:#2563EB;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                </div>
+                <div class="home-step-num">1</div>
+                <div class="home-step-title">{t["step1_title"]}</div>
+                <div class="home-step-desc">{t["step1_desc"]}</div>
+            </div>
+
+            <!-- Card 2: Upload -->
+            <div class="home-step-box">
+                <div class="home-step-icon-wrap" style="background:#F5F3FF; color:#7C3AED;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <div class="home-step-num">2</div>
+                <div class="home-step-title">{t["step2_title"]}</div>
+                <div class="home-step-desc">{t["step2_desc"]}</div>
+            </div>
+
+            <!-- Card 3: Verify -->
+            <div class="home-step-box">
+                <div class="home-step-icon-wrap" style="background:#ECFDF5; color:#059669;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+                </div>
+                <div class="home-step-num">3</div>
+                <div class="home-step-title">{t["step3_title"]}</div>
+                <div class="home-step-desc">{t["step3_desc"]}</div>
+            </div>
+        </div>
+
+        <!-- CTA Row -->
+        <div class="home-cta-row">
+            <a class="btn-primary-link" href="?page=step1">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <span>{t["btn_start"]}</span>
+            </a>
+            <a class="btn-secondary-link" href="?page=reviewer">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>{t["btn_reviewer"]}</span>
+            </a>
+        </div>
+
+        <!-- Evidence Status Key -->
+        <div class="home-legend-wrap">
+            <div class="home-legend-title">{t["legend_title"]}</div>
+            <div class="home-legend-grid">
+                <div class="legend-item">
+                    <span class="chip chip-verified">Document Verified</span>
+                    <span>{t["legend_verified"]}</span>
+                </div>
+                <div class="legend-item">
+                    <span class="chip chip-stated">Applicant Stated</span>
+                    <span>{t["legend_stated"]}</span>
+                </div>
+                <div class="legend-item">
+                    <span class="chip chip-inferred">AI Inferred</span>
+                    <span>{t["legend_inferred"]}</span>
+                </div>
+                <div class="legend-item">
+                    <span class="chip chip-confirmation">Needs Confirmation</span>
+                    <span>{t["legend_confirm"]}</span>
+                </div>
+                <div class="legend-item">
+                    <span class="chip chip-missing">Missing</span>
+                    <span>{t["legend_missing"]}</span>
+                </div>
+                <div class="legend-item">
+                    <span class="chip chip-contradicted">⚠ Contradicted</span>
+                    <span>{t["legend_contra"]}</span>
+                </div>
+            </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(home_html, unsafe_allow_html=True)
 
-    # 3 Cards
-    col_c1, col_c2, col_c3 = st.columns(3)
-    with col_c1:
-        st.markdown(f"""
-        <div class="home-step-card">
-            <div class="home-step-icon" style="background:#EFF6FF; color:#2563EB;">🎙️</div>
-            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">1</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step1_title"]}</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step1_desc"]}</div>
+
+# =============================================================================
+# APP SHELL FOR OTHER SCREENS (SIDEBAR & DEVELOPER MODE)
+# =============================================================================
+else:
+    with st.sidebar:
+        st.markdown("""
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
+            <span style="font-size:22px;">🌱</span>
+            <span style="font-size:16px; font-weight:800; color:#111827;">TeraGrant Agent</span>
         </div>
-        """, unsafe_allow_html=True)
-    with col_c2:
-        st.markdown(f"""
-        <div class="home-step-card">
-            <div class="home-step-icon" style="background:#F5F3FF; color:#7C3AED;">⬆️</div>
-            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">2</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step2_title"]}</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step2_desc"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_c3:
-        st.markdown(f"""
-        <div class="home-step-card">
-            <div class="home-step-icon" style="background:#ECFDF5; color:#059669;">🛡️</div>
-            <div style="font-size:11px; color:#6B7280; font-weight:700; margin-bottom:2px;">3</div>
-            <div style="font-size:15px; font-weight:700; color:#111827; margin-bottom:4px;">{t["step3_title"]}</div>
-            <div style="font-size:12px; color:#6B7280; line-height:1.4;">{t["step3_desc"]}</div>
+        <div style="font-size:10.5px; color:#059669; font-weight:700; margin-bottom:16px;">
+            ● Verified Agent Active
         </div>
         """, unsafe_allow_html=True)
 
-    st.write("")
+        cur_page = st.session_state.get("page", "home")
 
-    # CTAs
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
-        if st.button(t["btn_start"], type="primary", use_container_width=True):
+        if st.button(t["nav_home"], use_container_width=True, type="primary" if cur_page == "home" else "secondary"):
+            st.query_params["page"] = "home"
+            st.session_state["page"] = "home"
+            st.rerun()
+
+        if st.button(t["nav_app"], use_container_width=True, type="primary" if cur_page == "my_application" else "secondary"):
+            st.query_params["page"] = "step1"
             st.session_state["page"] = "my_application"
             st.session_state["step"] = 1
             st.rerun()
-    with col_b2:
-        if st.button(t["btn_reviewer"], use_container_width=True):
+
+        if st.button(t["nav_review"], use_container_width=True, type="primary" if cur_page == "batch_review" else "secondary"):
+            st.query_params["page"] = "reviewer"
             st.session_state["page"] = "batch_review"
             st.rerun()
 
-    # Status Key
-    st.markdown(f"""
-    <div style="margin-top: 3rem; text-align:center;">
-        <div style="font-size:10px; font-weight:800; color:#6B7280; letter-spacing:0.8px; margin-bottom:12px;">{t["legend_title"]}</div>
-        <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:14px; font-size:11px; color:#4B5563;">
-            <span><span class="chip chip-verified">Document Verified</span> {t["legend_verified"]}</span>
-            <span><span class="chip chip-stated">Applicant Stated</span> {t["legend_stated"]}</span>
-            <span><span class="chip chip-inferred">AI Inferred</span> {t["legend_inferred"]}</span>
-            <span><span class="chip chip-confirmation">Needs Confirmation</span> {t["legend_confirm"]}</span>
-            <span><span class="chip chip-missing">Missing</span> {t["legend_missing"]}</span>
-            <span><span class="chip chip-contradicted">⚠️ Contradicted</span> {t["legend_contra"]}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+        if st.button(t["nav_evidence"], use_container_width=True, type="primary" if cur_page == "evidence_library" else "secondary"):
+            st.query_params["page"] = "evidence"
+            st.session_state["page"] = "evidence_library"
+            st.rerun()
+
+        st.markdown("---")
+
+        with st.expander("🛠 Developer Mode", expanded=False):
+            env_api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY") or ""
+            dev_api_key = st.text_input(
+                "Gemini API Key",
+                value=st.session_state.get("api_key", env_api_key),
+                type="password",
+            )
+            if dev_api_key:
+                st.session_state["api_key"] = dev_api_key
+                os.environ["GEMINI_API_KEY"] = dev_api_key
+
+            model_choice = st.selectbox(
+                "Model Fallback Lead",
+                options=["gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.5-pro"],
+                index=0,
+            )
+            st.session_state["lead_model"] = model_choice
+
+            if st.button("🔍 Test API Connection", use_container_width=True):
+                with st.spinner("Connecting to Google Gemini v1 API..."):
+                    try:
+                        curr_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
+                        client = get_gemini_client(api_key=curr_key)
+                        models_iter = list(client.models.list())
+                        st.success(f"✅ Connected! Available models: {len(models_iter)}")
+                    except Exception as e:
+                        st.error(f"❌ Connection Failed: {str(e)}")
+
+            st.markdown("##### ⚡ Test Presets")
+            if st.button("🎲 Unseen Applicant Test", use_container_width=True):
+                st.session_state["preset_loaded"] = "unseen"
+                st.toast("Loaded Unseen Applicant test assets!")
+
+            rehearsal_toggle = st.checkbox("Enable Rehearsal Backup Mode", value=False)
+            st.session_state["rehearsal_mode"] = rehearsal_toggle
 
 
 # =============================================================================
 # SCREEN S1: STEP 1 OF 6 — TELL YOUR STORY (Figma Image 12)
 # =============================================================================
-elif st.session_state["page"] == "my_application" and st.session_state.get("step", 1) == 1:
+if st.session_state["page"] == "my_application" and st.session_state.get("step", 1) == 1:
     disp_name = applicant_display_name(st.session_state)
 
     # 1. Top Bar Row
     st.markdown(f"""
     <div class="top-bar-row">
-        <div style="font-size:13px; font-weight:600; color:#6B7280;">‹ Home</div>
+        <a href="?page=home" style="font-size:13px; font-weight:600; color:#6B7280; text-decoration:none;">‹ Home</a>
         <div class="top-bar-title">{disp_name}</div>
         <div class="top-bar-step">Step 1 of 6</div>
     </div>
@@ -424,18 +665,21 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     col_lp1, col_lp2, col_lp3 = st.columns(3)
     with col_lp1:
         if st.button("English", key="s1_lang_en", use_container_width=True, type="primary" if cur_lang == "English" else "secondary"):
+            st.query_params["lang"] = "en"
             st.session_state["lang"] = "English"
             st.rerun()
     with col_lp2:
         if st.button("አማርኛ", key="s1_lang_am", use_container_width=True, type="primary" if cur_lang == "Amharic" else "secondary"):
+            st.query_params["lang"] = "am"
             st.session_state["lang"] = "Amharic"
             st.rerun()
     with col_lp3:
         if st.button("Afaan Oromoo", key="s1_lang_or", use_container_width=True, type="primary" if cur_lang == "Oromo" else "secondary"):
+            st.query_params["lang"] = "om"
             st.session_state["lang"] = "Oromo"
             st.rerun()
 
-    # 4. Recorder Block (96px Red Pulsing Circle + Waveform)
+    # 4. Recorder Block
     st.markdown("""
     <div class="recorder-wrapper">
         <div class="record-circle-96">🎙️</div>
@@ -454,20 +698,17 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     audio_bytes_found = None
     audio_ext = "mp3"
 
-    # Native recorder
     audio_rec = st.audio_input("Speak your story (ድምጽ ይቅረጹ)", key="step1_audio_input")
     if audio_rec:
         audio_bytes_found = audio_rec.read()
         audio_ext = "mp3"
 
-    # Quiet upload link for all 6 formats
     with st.expander("📁 or upload a voice note (.mp3/.wav/.m4a/.ogg/.oga/.webm)", expanded=False):
         up_audio = st.file_uploader("Upload audio file", type=["mp3", "wav", "m4a", "ogg", "oga", "webm"], key="step1_upload_file")
         if up_audio:
             audio_bytes_found = up_audio.read()
             audio_ext = up_audio.name.split(".")[-1].lower()
 
-    # Check unseen preset if applicable
     if not audio_bytes_found and st.session_state.get("preset_loaded") == "unseen":
         proof_mp3 = PROJECT_ROOT / "data" / "proof_voice.mp3"
         if proof_mp3.exists():
@@ -490,7 +731,7 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
                 )
                 st.session_state["step1_result"] = res
 
-    # 6. Render WhatsApp-style Transcript Bubble + Fact Chips
+    # 6. Transcript Bubble + Fact Chips
     s1_res = st.session_state.get("step1_result")
     has_valid_transcript = False
 
@@ -513,10 +754,11 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
 
     st.write("")
 
-    # 7. Bottom Navigation Bar with Black Pill & Emerald Continue
+    # 7. Bottom Navigation Bar
     col_bb1, col_bb2, col_bb3 = st.columns([1, 2, 1])
     with col_bb1:
         if st.button("‹ Back to home", key="btn_s1_bth"):
+            st.query_params["page"] = "home"
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -532,10 +774,11 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     with col_bb3:
         cont_disabled = not has_valid_transcript
         if st.button("Continue ›", type="primary", use_container_width=True, disabled=cont_disabled, key="btn_s1_continue"):
+            st.query_params["page"] = "step2"
             st.session_state["step"] = 2
             st.rerun()
 
-    # 8. Guided Voice Interview Expander
+    # 8. Guided Voice Interview
     st.write("")
     st.markdown("""
     <div style="text-align:center;">
@@ -566,7 +809,7 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     # 1. Top Bar Row
     st.markdown(f"""
     <div class="top-bar-row">
-        <div style="font-size:13px; font-weight:600; color:#6B7280;">‹ Back</div>
+        <a href="?page=step1" style="font-size:13px; font-weight:600; color:#6B7280; text-decoration:none;">‹ Back</a>
         <div class="top-bar-title">{disp_name}</div>
         <div class="top-bar-step">Step 2 of 6</div>
     </div>
@@ -593,7 +836,6 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     </div>
     """, unsafe_allow_html=True)
 
-    # 4. Two Upload Cards with Dashed Dropzones
     col_u1, col_u2 = st.columns(2)
 
     with col_u1:
@@ -645,12 +887,11 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
                 st.caption("🎲 Unseen Test Workshop Photo Attached")
 
     st.write("")
-    st.write("")
 
-    # 5. Bottom Navigation Bar
     col_s2_b1, col_s2_b2 = st.columns(2)
     with col_s2_b1:
         if st.button("‹ Back to Step 1", key="btn_s2_back"):
+            st.query_params["page"] = "step1"
             st.session_state["step"] = 1
             st.rerun()
     with col_s2_b2:
@@ -715,6 +956,7 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
                     "gaps": [g.model_dump() for g in pack.gaps],
                 }
                 st.session_state["digital_twin_data"] = twin_payload
+                st.query_params["page"] = "step3"
                 st.session_state["step"] = 3
                 st.rerun()
 
@@ -732,7 +974,8 @@ elif st.session_state["page"] == "my_application":
         </div>
         """, unsafe_allow_html=True)
     with col_hdr_r:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_downstream_home2"):
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_downstream_home3"):
+            st.query_params["page"] = "home"
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -770,7 +1013,8 @@ elif st.session_state["page"] == "batch_review":
         </div>
         """, unsafe_allow_html=True)
     with col_rh2:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_rev_home2"):
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_rev_home3"):
+            st.query_params["page"] = "home"
             st.session_state["page"] = "home"
             st.rerun()
 
@@ -778,10 +1022,10 @@ elif st.session_state["page"] == "batch_review":
 
     col_b1, col_b2 = st.columns([2, 1])
     with col_b1:
-        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up_main3")
+        uploaded_batch = st.file_uploader("Upload Batch JSON", type=["json"], key="rev_batch_up_main4")
     with col_b2:
         st.markdown("##### ⚡ Quick Load Presets")
-        load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True, key="btn_load_12_main")
+        load_12_btn = st.button("📂 Load 12-Applicant Portfolio", use_container_width=True, key="btn_load_12_main2")
 
     if load_12_btn or uploaded_batch:
         if uploaded_batch:
@@ -796,7 +1040,7 @@ elif st.session_state["page"] == "batch_review":
     if "raw_batch_data" in st.session_state:
         batch_items = st.session_state["raw_batch_data"]
         
-        if st.button("⚡ Rank Batch & Defend Shortlist", type="primary", use_container_width=True, key="btn_rank_batch_main"):
+        if st.button("⚡ Rank Batch & Defend Shortlist", type="primary", use_container_width=True, key="btn_rank_batch_main2"):
             with st.spinner("Sorting deterministically and synthesizing committee defense..."):
                 scored_entries = []
                 contra_dict = {}
@@ -880,7 +1124,8 @@ elif st.session_state["page"] == "evidence_library":
         st.markdown(f"### 📁 {t['nav_evidence']}")
         st.caption("Verifiable audit trail tracking every extracted claim, OCR token, and confidence metric.")
     with col_eh2:
-        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_ev_home2"):
+        if st.button("← " + t["nav_home"], use_container_width=True, key="btn_ev_home3"):
+            st.query_params["page"] = "home"
             st.session_state["page"] = "home"
             st.rerun()
 
