@@ -37,7 +37,7 @@
       <div style="text-align: right;">
         <span class="chip chip-verified">{{ icon('shield', size=12, color='#059669') }} Track: Women & Youth Led SME</span>
         <div style="font-size: 12px; font-weight: 700; color: #7C3AED; margin-top: 6px;">
-          Potential: 86 / 100 (+12 pts Recoverable)
+          Potential: {{ provisional_score + sensitivity_items|sum(attribute='pts') }} / 100 (+{{ sensitivity_items|sum(attribute='pts') }} pts Recoverable)
         </div>
       </div>
     </div>
@@ -86,16 +86,40 @@
       </p>
 
       {% if 'financials.sales_history_year_2' not in resolved_gaps %}
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="btn btn-secondary" style="height: 36px; font-size: 12px;" onclick="toggleGapVoiceRecorder('financials.sales_history_year_2')">
-          {{ icon('mic', size=14, color='#111827') }}
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="btn btn-primary" style="height: 36px; font-size: 12px;" onclick="toggleGapVoiceRecorder('financials.sales_history_year_2')">
+          {{ icon('mic', size=14, color='#FFFFFF') }}
           <span>Answer this with voice</span>
         </button>
+        <a href="javascript:void(0)" onclick="toggleGapTextInput('financials.sales_history_year_2')" style="font-size: 11px; color: #6B7280; text-decoration: underline; cursor: pointer;">or type it</a>
       </div>
 
-      <!-- Inline Recorder / Text Box -->
-      <div id="gap-voice-box-financials.sales_history_year_2" style="display: none; margin-top: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px;">
-        <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">Speak or type your 2023 sales amount:</div>
+      <!-- Voice Recorder Component -->
+      <div id="gap-voice-box-financials.sales_history_year_2" style="display: none; margin-top: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+        <!-- Language Pills -->
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+          <span style="font-size: 11px; font-weight: 600; color: #6B7280;">Language:</span>
+          <div class="seg" style="font-size: 11px;">
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'en' else '' }}" data-lang="English" data-gap="financials.sales_history_year_2" onclick="selectGapLang(this)">English</a>
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'am' else '' }}" data-lang="Amharic" data-gap="financials.sales_history_year_2" onclick="selectGapLang(this)">አማርኛ</a>
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'om' else '' }}" data-lang="Oromo" data-gap="financials.sales_history_year_2" onclick="selectGapLang(this)">Afaan Oromoo</a>
+          </div>
+        </div>
+        <!-- Mic Recorder (identical to Step 1) -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div id="gap-mic-financials.sales_history_year_2" class="gap-mic-circle" style="width: 44px; height: 44px; border-radius: 50%; background: #F3F4F6; border: 2px solid #D1D5DB; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onclick="toggleGapRecording('financials.sales_history_year_2')">
+            {{ icon('mic', size=18, color='#6B7280') }}
+          </div>
+          <div>
+            <div id="gap-rec-caption-financials.sales_history_year_2" style="font-size: 12px; font-weight: 600; color: #374151;">Tap to record your answer</div>
+            <div style="font-size: 11px; color: #9CA3AF;">Speak your 2023 sales amount clearly</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text Input (secondary, hidden by default) -->
+      <div id="gap-text-box-financials.sales_history_year_2" style="display: none; margin-top: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">Type your 2023 sales amount:</div>
         <div style="display: flex; gap: 8px;">
           <input type="text" id="gap-text-financials.sales_history_year_2" placeholder="e.g. In 2023 our sales were 480,000 Birr" style="flex: 1; height: 36px; border: 1px solid #D1D5DB; border-radius: 6px; padding: 0 10px; font-size: 12px;">
           <button type="button" class="btn btn-primary" style="height: 36px; font-size: 12px;" onclick="resolveGapWithVoice('financials.sales_history_year_2')">
@@ -126,12 +150,52 @@
       </p>
 
       {% if 'employment.workstation_discrepancy' not in resolved_gaps %}
-      <div style="display: flex; gap: 8px;">
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary" style="height: 36px; font-size: 12px;" onclick="toggleGapVoiceRecorder('employment.workstation_discrepancy')">
+          {{ icon('mic', size=14, color='#FFFFFF') }}
+          <span>Answer this with voice</span>
+        </button>
         <label for="payroll-evidence-file" class="btn btn-secondary" style="height: 36px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
           {{ icon('doc', size=14, color='#111827') }}
-          <span>Upload Payroll Evidence to Resolve</span>
+          <span>Upload Payroll Evidence</span>
         </label>
         <input type="file" id="payroll-evidence-file" accept=".jpg,.jpeg,.png,.pdf" style="display: none;" onchange="resolveGapWithFile('employment.workstation_discrepancy', this)">
+        <a href="javascript:void(0)" onclick="toggleGapTextInput('employment.workstation_discrepancy')" style="font-size: 11px; color: #6B7280; text-decoration: underline; cursor: pointer;">or type it</a>
+      </div>
+
+      <!-- Voice Recorder Component -->
+      <div id="gap-voice-box-employment.workstation_discrepancy" style="display: none; margin-top: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px;">
+        <!-- Language Pills -->
+        <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+          <span style="font-size: 11px; font-weight: 600; color: #6B7280;">Language:</span>
+          <div class="seg" style="font-size: 11px;">
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'en' else '' }}" data-lang="English" data-gap="employment.workstation_discrepancy" onclick="selectGapLang(this)">English</a>
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'am' else '' }}" data-lang="Amharic" data-gap="employment.workstation_discrepancy" onclick="selectGapLang(this)">አማርኛ</a>
+            <a href="javascript:void(0)" class="gap-lang-pill {{ 'active' if lang == 'om' else '' }}" data-lang="Oromo" data-gap="employment.workstation_discrepancy" onclick="selectGapLang(this)">Afaan Oromoo</a>
+          </div>
+        </div>
+        <!-- Mic Recorder -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div id="gap-mic-employment.workstation_discrepancy" class="gap-mic-circle" style="width: 44px; height: 44px; border-radius: 50%; background: #F3F4F6; border: 2px solid #D1D5DB; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onclick="toggleGapRecording('employment.workstation_discrepancy')">
+            {{ icon('mic', size=18, color='#6B7280') }}
+          </div>
+          <div>
+            <div id="gap-rec-caption-employment.workstation_discrepancy" style="font-size: 12px; font-weight: 600; color: #374151;">Tap to record your answer</div>
+            <div style="font-size: 11px; color: #9CA3AF;">Explain the staffing arrangement (e.g. shifts)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text Input (secondary, hidden by default) -->
+      <div id="gap-text-box-employment.workstation_discrepancy" style="display: none; margin-top: 12px; background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 12px;">
+        <div style="font-size: 12px; font-weight: 600; margin-bottom: 6px;">Type your explanation:</div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="gap-text-employment.workstation_discrepancy" placeholder="e.g. We operate in 2 shifts, 4 workers each" style="flex: 1; height: 36px; border: 1px solid #D1D5DB; border-radius: 6px; padding: 0 10px; font-size: 12px;">
+          <button type="button" class="btn btn-primary" style="height: 36px; font-size: 12px;" onclick="resolveGapWithVoice('employment.workstation_discrepancy')">
+            {{ icon('check', size=14, color='#FFFFFF') }}
+            <span>Submit</span>
+          </button>
+        </div>
       </div>
       {% endif %}
     </div>

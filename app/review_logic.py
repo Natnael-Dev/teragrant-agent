@@ -1,11 +1,13 @@
 """
-Review Logic for TeraGrant Reviewer Dashboard (Batch 30F).
+Review Logic for TeraGrant Reviewer Dashboard (Batch 32F).
 Pure Python functions for loading portfolio batch JSON and calculating ranked shortlists.
 Supports both active session dossier and the 12-applicant demo benchmark.
+Includes module-level caching to ensure ZERO AI calls on subsequent renders.
 """
 
 import json
 import os
+import hashlib
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 
@@ -16,6 +18,10 @@ from agents.scorer_agent import score_sensitivity, compare_grid_variants
 from app.ui_helpers import kpi_stats, row_status, evidence_pct
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Module-level cache: keyed by source identifier (e.g. "demo", "session:<hash>")
+# Ensures ZERO call_gemini_with_fallback calls on cached renders.
+_REVIEWER_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 class EnrichedCompany:
@@ -70,6 +76,30 @@ def normalize_grid_variant(v: Any) -> GridVariant:
     return GridVariant.GENERAL_SME
 
 
+def _session_cache_key(session_dict: Optional[Dict[str, Any]]) -> str:
+    """Generate a deterministic cache key from mutable session state."""
+    if not session_dict:
+        return "session:empty"
+    sig = json.dumps({
+        "processed": session_dict.get("processed"),
+        "applicant_name": session_dict.get("applicant_name"),
+        "resolved_gaps": sorted(session_dict.get("resolved_gaps", [])),
+        "transcript": (session_dict.get("transcript") or "")[:50],
+    }, sort_keys=True, default=str)
+    return f"session:{hashlib.md5(sig.encode()).hexdigest()}"
+
+
+def invalidate_reviewer_cache(source: str = "all"):
+    """Clear reviewer cache. Called after SESSION mutations (process, resolve, consent)."""
+    global _REVIEWER_CACHE
+    if source == "all":
+        _REVIEWER_CACHE.clear()
+    else:
+        keys_to_remove = [k for k in _REVIEWER_CACHE if k.startswith(source)]
+        for k in keys_to_remove:
+            _REVIEWER_CACHE.pop(k, None)
+
+
 def get_reviewer_data(
     source: str = "demo",
     session_dict: Optional[Dict[str, Any]] = None,
@@ -77,9 +107,15 @@ def get_reviewer_data(
 ) -> Dict[str, Any]:
     """
     Loads portfolio data and computes deterministic KPI stats, ranked shortlists, and committee defense dossiers.
+    Uses module-level caching to ensure ZERO AI calls on subsequent renders.
     - source='demo': 12 demo applicants from data/sample_batch_12_applicants.json
     - source='session': active processed application from global SESSION
     """
+    # Cache lookup
+    cache_key = source if source == "demo" else _session_cache_key(session_dict)
+    if cache_key in _REVIEWER_CACHE:
+        return _REVIEWER_CACHE[cache_key]
+
     raw_items = []
     has_session_pack = bool(
         session_dict and (
@@ -204,48 +240,58 @@ def get_reviewer_data(
         if contra_objs:
             contra_dict[b_name] = contra_objs
 
-    eff_key = api_key or os.getenv("GEMINI_API_KEY")
-    raw_shortlist = rank_batch(scored_entries, contradictions_map=contra_dict, api_key=eff_key)
+    # Deterministic sort descending by eligibility and total score (Zero AI at render time)
+    sorted_entries = sorted(
+        scored_entries,
+        key=lambda x: (x[1].eligibility_gate.is_eligible, x[1].total_score),
+        reverse=True
+    )
     kpis = kpi_stats(raw_items)
 
     # Build enriched presentation companies
     items_by_name = {item["business_name"]: item for item in raw_items}
     enriched_companies: List[EnrichedCompany] = []
 
-    if raw_shortlist and raw_shortlist.companies:
-        for comp in raw_shortlist.companies:
-            match_item = items_by_name.get(comp.business_name, {})
-            comp_grant = match_item.get("grant_etb", 450000)
-            strong_ev = match_item.get("strongest_evidence", [
-                "Official Municipal Trade License verified against registry",
-                "On-site workshop photograph confirms operational capacity"
-            ])
-            unver_claims = match_item.get("unverified_claims", [
-                "2023 annual turnover self-reported without audited bank statement"
-            ])
-            potential_rec = 12 if comp.total_score < 85 else 4
-            crit_scores = criteria_map.get(comp.business_name, [])
+    for rank_idx, (b_name, sc_res) in enumerate(sorted_entries):
+        match_item = items_by_name.get(b_name, {})
+        comp_grant = match_item.get("grant_etb", 450000)
+        strong_ev = match_item.get("strongest_evidence", [
+            "Official Municipal Trade License verified against registry",
+            "On-site workshop photograph confirms operational capacity"
+        ])
+        unver_claims = match_item.get("unverified_claims", [
+            "2023 annual turnover self-reported without audited bank statement"
+        ])
+        potential_rec = 12 if sc_res.total_score < 85 else 4
+        crit_scores = criteria_map.get(b_name, [])
+        comp_contras = contra_dict.get(b_name, [])
 
-            enriched_companies.append(
-                EnrichedCompany(
-                    rank=comp.rank,
-                    business_name=comp.business_name,
-                    total_score=comp.total_score,
-                    grid_variant=comp.grid_variant,
-                    justification=comp.justification,
-                    site_visit_questions=comp.site_visit_questions,
-                    contradictions=comp.contradictions,
-                    grant_etb=comp_grant,
-                    strongest_evidence=strong_ev,
-                    unverified_claims=unver_claims,
-                    potential_recovery=potential_rec,
-                    criteria_scores=crit_scores
-                )
+        custom_justification = match_item.get("reviewer_summary") or f"{b_name} achieved rank #{rank_idx + 1} with a total score of {sc_res.total_score}/100 evaluated under the {sc_res.grid_variant.value} track."
+
+        enriched_companies.append(
+            EnrichedCompany(
+                rank=rank_idx + 1,
+                business_name=b_name,
+                total_score=sc_res.total_score,
+                grid_variant=sc_res.grid_variant,
+                justification=custom_justification,
+                site_visit_questions=[
+                    "Inspect operational facility and verify declared machinery assets.",
+                    "Review payroll records to substantiate reported employment count.",
+                    "Verify local supply agreements and tax compliance clearance.",
+                ],
+                contradictions=comp_contras,
+                grant_etb=comp_grant,
+                strongest_evidence=strong_ev,
+                unverified_claims=unver_claims,
+                potential_recovery=potential_rec,
+                criteria_scores=crit_scores
             )
+        )
 
     shortlist = EnrichedShortlist(
         companies=enriched_companies,
-        batch_summary=raw_shortlist.batch_summary if raw_shortlist else "Batch ranking completed."
+        batch_summary=f"Batch portfolio evaluation comprising {len(sorted_entries)} applicants sorted by total score."
     )
 
     # Calculate 3-variant comparison for reviewer detail tab
@@ -259,7 +305,7 @@ def get_reviewer_data(
         "routing_reason": "Automated track recommendation: WOMEN_AND_YOUTH_LED_SME based on demographic representation, female staff percentage, and localized agro-processing impact."
     }
 
-    return {
+    result = {
         "kpis": kpis,
         "shortlist": shortlist,
         "raw_items": raw_items,
@@ -269,3 +315,8 @@ def get_reviewer_data(
         "grid_comparison": grid_comparison,
         "error": None
     }
+
+    # Store in cache for zero-AI subsequent renders
+    _REVIEWER_CACHE[cache_key] = result
+    return result
+

@@ -47,42 +47,42 @@
       <tbody>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Legal Business Name</td>
-          <td style="padding: 12px 0;">{{ twin.company_name or 'Almaz Spice Mill PLC' }}</td>
+          <td style="padding: 12px 0;">{{ twin.company_name or session.applicant_name or 'Awaiting intake' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Trade License</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">98%</td>
         </tr>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">TIN Number</td>
-          <td style="padding: 12px 0;">{{ twin.tin_number or '0047281903' }}</td>
+          <td style="padding: 12px 0;">{{ twin.tin_number or 'Awaiting verification' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Trade License</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">95%</td>
         </tr>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Location & Kebele</td>
-          <td style="padding: 12px 0;">{{ twin.location or 'Bekoji Tera, Arsi Zone' }}</td>
+          <td style="padding: 12px 0;">{{ twin.location or 'Awaiting intake' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">92%</td>
         </tr>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Total Staff (Headcount)</td>
-          <td style="padding: 12px 0;">{{ twin.total_staff or 8 }} Employees</td>
+          <td style="padding: 12px 0;">{{ (twin.total_staff ~ ' Employees') if twin.total_staff else 'Awaiting intake' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">90%</td>
         </tr>
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Annual Turnover</td>
-          <td style="padding: 12px 0;">{{ "{:,.0f}".format(twin.annual_sales or 480000) }} ETB</td>
+          <td style="padding: 12px 0;">{{ ("{:,.0f}".format(twin.annual_sales) ~ ' ETB') if twin.annual_sales else 'Awaiting intake' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">85%</td>
         </tr>
         <tr>
           <td style="padding: 12px 0; font-weight: 600;">Equipment Requested</td>
-          <td style="padding: 12px 0;">{{ twin.machinery_requested or 'Stainless Steel Pulverizer 500kg/h' }}</td>
+          <td style="padding: 12px 0;">{{ twin.machinery_requested or 'Awaiting recommendation' }}</td>
           <td style="padding: 12px 0;"><span class="chip chip-inferred">{{ icon('sparkles', size=11, color='#7C3AED') }} AI Inferred</span></td>
           <td style="padding: 12px 0; color: #6B7280;">Impact Builder</td>
           <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #7C3AED;">80%</td>

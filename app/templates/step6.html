@@ -34,7 +34,7 @@
   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px;">
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 20px; text-align: center;">
       <div style="font-size: 11px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Rubric Score</div>
-      <div style="font-size: 32px; font-weight: 800; color: #059669; margin: 6px 0;">{{ score.total_score if score else 74 }} <span style="font-size: 16px; color: #6B7280;">/ 100</span></div>
+      <div style="font-size: 32px; font-weight: 800; color: #059669; margin: 6px 0;">{{ score.total_score if score else provisional_score }} <span style="font-size: 16px; color: #6B7280;">/ 100</span></div>
       <div style="font-size: 11px; color: #059669; font-weight: 600;">Track: Women & Youth Led SME</div>
     </div>
 
@@ -46,8 +46,8 @@
 
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 20px; text-align: center;">
       <div style="font-size: 11px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Potential Score</div>
-      <div style="font-size: 32px; font-weight: 800; color: #7C3AED; margin: 6px 0;">86 <span style="font-size: 16px; color: #6B7280;">/ 100</span></div>
-      <div style="font-size: 11px; color: #7C3AED; font-weight: 600;">+12 pts Recoverable</div>
+      <div style="font-size: 32px; font-weight: 800; color: #7C3AED; margin: 6px 0;">{{ provisional_score + (sensitivity_items|sum(attribute='pts') if sensitivity_items else 12) }} <span style="font-size: 16px; color: #6B7280;">/ 100</span></div>
+      <div style="font-size: 11px; color: #7C3AED; font-weight: 600;">+{{ sensitivity_items|sum(attribute='pts') if sensitivity_items else 12 }} pts Recoverable</div>
     </div>
   </div>
 

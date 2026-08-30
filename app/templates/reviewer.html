@@ -42,6 +42,16 @@
     </div>
   </div>
 
+  {% if show_demo_banner %}
+  <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-left: 4px solid #D97706; border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; color: #92400E; font-size: 13px; display: flex; align-items: center; gap: 10px;">
+    {{ icon('alert', size=18, color='#D97706') }}
+    <div>
+      <strong>Demo Mode:</strong> Showing demo benchmark data. Process a real application to see your real results here.
+    </div>
+  </div>
+  {% endif %}
+
+
   <!-- 6 Dynamic KPI Cards -->
   <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px;">
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">

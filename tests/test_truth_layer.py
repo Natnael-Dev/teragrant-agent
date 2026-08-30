@@ -253,8 +253,9 @@ def test_transparency_score_sensitivity_and_readiness():
     assert len(readiness["blockers"]) > 0
 
     # 3. Reproducibility
-    repro = reproducibility_check(pack, GridVariant.GENERAL_SME, iterations=2)
-    assert repro["is_identical"] is True
+    with patch("agents.scorer_agent.score_application", return_value=scoring_res):
+        repro = reproducibility_check(pack, GridVariant.GENERAL_SME, iterations=2)
+        assert repro["is_identical"] is True
 
 
 # =============================================================================

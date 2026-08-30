@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
 from app.wizard_logic import transcribe_step1, applicant_display_name, build_fact_chips
-from app.review_logic import get_reviewer_data
+from app.review_logic import get_reviewer_data, invalidate_reviewer_cache
 from app.tts_engine import generate_speech_audio
 from extractors.vision_extractor import extract_license_data
 from extractors.workshop_extractor import extract_workshop_data
@@ -195,8 +195,16 @@ async def wizard_step(
 
 
 @app.get("/reviewer", response_class=HTMLResponse)
-async def reviewer_dashboard(request: Request, source: str = Query("demo")):
+async def reviewer_dashboard(request: Request, source: Optional[str] = Query(None)):
+    # FIX 3: Auto-detect source from SESSION state
+    explicit_source = source is not None
+    if source is None:
+        source = "session" if SESSION.get("processed") else "demo"
     norm_source = "session" if source == "session" else "demo"
+    
+    # Show amber banner when defaulting to demo (no explicit choice)
+    show_demo_banner = (norm_source == "demo" and not explicit_source)
+    
     t = get_translations("en")
     data = get_reviewer_data(source=norm_source, session_dict=SESSION)
     return templates.TemplateResponse(
@@ -210,7 +218,8 @@ async def reviewer_dashboard(request: Request, source: str = Query("demo")):
             "source": norm_source,
             "session_count": data.get("session_count", 0),
             "demo_count": data.get("demo_count", 12),
-            "grid_comparison": data.get("grid_comparison")
+            "grid_comparison": data.get("grid_comparison"),
+            "show_demo_banner": show_demo_banner
         }
     )
 
@@ -411,6 +420,9 @@ async def api_process(
     SESSION["applicant_name"] = b_name
     SESSION["processed"] = True
 
+    # Invalidate reviewer cache since SESSION changed
+    invalidate_reviewer_cache("session")
+
     # Return structured 4-step summary
     return JSONResponse(content={
         "status": "success",
@@ -482,23 +494,43 @@ async def api_consent(
     })
 
 
-# API: GAP RESOLUTION
+# API: GAP RESOLUTION (FIX 1: supports voice audio transcription)
 @app.post("/api/resolve")
 async def api_resolve(
     gap_field: str = Form(...),
     audio: Optional[UploadFile] = File(None),
     file: Optional[UploadFile] = File(None),
-    text: Optional[str] = Form(None)
+    text: Optional[str] = Form(None),
+    lang: str = Form("English")
 ):
-    # Check 50MB limit
+    provenance = "Applicant Stated"
+    transcript_text = ""
+
+    # Check 50MB limit and process audio if present
     if audio and audio.filename:
         ab = await audio.read()
         if len(ab) > MAX_FILE_SIZE_BYTES:
             return JSONResponse(status_code=400, content={"status": "error", "message": "Audio exceeds 50MB limit."})
+        if len(ab) > 100:
+            ext = audio.filename.split(".")[-1] if "." in audio.filename else "webm"
+            res = transcribe_step1(audio_bytes=ab, ext=ext, lang=lang)
+            transcript_text = res.get("transcript", "")
+            if res.get("error"):
+                return JSONResponse(status_code=400, content={
+                    "status": "error",
+                    "message": res["error"].get("message", "Transcription failed."),
+                    "error": res["error"]
+                })
+            provenance = "Applicant Stated (Voice)"
+    elif text and text.strip():
+        transcript_text = text.strip()
+        provenance = "Applicant Stated (Text)"
+
     if file and file.filename:
         fb = await file.read()
         if len(fb) > MAX_FILE_SIZE_BYTES:
             return JSONResponse(status_code=400, content={"status": "error", "message": "File exceeds 50MB limit."})
+        provenance = "Document Verified"
 
     # Record resolution
     if "resolved_gaps" not in SESSION:
@@ -513,10 +545,14 @@ async def api_resolve(
     if "workstation" in gap_field or "staff" in gap_field:
         dt["total_staff"] = 8
 
+    # Invalidate reviewer cache since SESSION changed
+    invalidate_reviewer_cache("session")
+
     return JSONResponse(content={
         "status": "resolved",
         "gap_field": gap_field,
-        "provenance": "Document Verified" if file else "Applicant Stated",
+        "provenance": provenance,
+        "transcript": transcript_text,
         "message": f"Gap in {gap_field} successfully corroborated.",
         "new_chip": f"Corroborated: {gap_field}"
     })
@@ -552,7 +588,7 @@ async def api_reviewer_export(source: str = Query("demo")):
 
     return JSONResponse(
         content=convert_to_serializable(export_payload),
-        headers={"Content-Disposition": f"attachment; filename=TeraGrant_Shortlist_{norm_source.title()}.json"}
+        headers={"Content-Disposition": f"attachment; filename=shortlist_{norm_source}.json"}
     )
 
 

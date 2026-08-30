@@ -414,11 +414,138 @@ async function submitProcess() {
   }
 }
 
-// Step 4: Gap Resolution Handlers
+// Step 4: Gap Resolution Handlers (Voice Primary + Language Pills + Text Secondary)
+let gapMediaRecorder = null;
+let gapAudioChunks = [];
+let isGapRecording = false;
+let activeRecordingGapField = null;
+let gapSelectedLanguages = {}; // gapField -> lang ("English" | "Amharic" | "Oromo")
+
 function toggleGapVoiceRecorder(gapField) {
-  const container = document.getElementById("gap-voice-box-" + gapField);
-  if (container) {
-    container.style.display = container.style.display === "none" ? "block" : "none";
+  const vBox = document.getElementById("gap-voice-box-" + gapField);
+  const tBox = document.getElementById("gap-text-box-" + gapField);
+  if (vBox) {
+    vBox.style.display = vBox.style.display === "none" ? "block" : "none";
+  }
+  if (tBox) tBox.style.display = "none";
+}
+
+function toggleGapTextInput(gapField) {
+  const tBox = document.getElementById("gap-text-box-" + gapField);
+  const vBox = document.getElementById("gap-voice-box-" + gapField);
+  if (tBox) {
+    tBox.style.display = tBox.style.display === "none" ? "block" : "none";
+  }
+  if (vBox) vBox.style.display = "none";
+}
+
+function selectGapLang(el) {
+  const gap = el.getAttribute("data-gap");
+  const lang = el.getAttribute("data-lang");
+  gapSelectedLanguages[gap] = lang;
+  
+  const parent = el.closest(".seg");
+  if (parent) {
+    parent.querySelectorAll(".gap-lang-pill").forEach(p => p.classList.remove("active"));
+    el.classList.add("active");
+  }
+}
+
+async function toggleGapRecording(gapField) {
+  const micEl = document.getElementById("gap-mic-" + gapField);
+  const captionEl = document.getElementById("gap-rec-caption-" + gapField);
+  const targetLang = gapSelectedLanguages[gapField] || "English";
+
+  if (!isGapRecording) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      gapMediaRecorder = new MediaRecorder(stream);
+      gapAudioChunks = [];
+      activeRecordingGapField = gapField;
+
+      gapMediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) gapAudioChunks.push(e.data);
+      };
+
+      gapMediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(gapAudioChunks, { type: "audio/webm" });
+        showLoadingOverlay("🏗️ Resolving your answer...");
+
+        const formData = new FormData();
+        formData.append("gap_field", gapField);
+        formData.append("audio", audioBlob, "gap_answer.webm");
+        formData.append("lang", targetLang);
+
+        const card = document.getElementById("gap-card-" + gapField);
+        if (card) card.style.opacity = "0.6";
+
+        try {
+          const res = await fetch("/api/resolve", {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+          if (data.status === "resolved") {
+            if (card) {
+              card.style.opacity = "1";
+              card.style.borderLeftColor = "#059669";
+              card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <span style="font-weight: 700; font-size: 14px; color: #059669;">✓ ${gapField} (Resolved by Voice)</span>
+                  <span class="chip chip-stated">Applicant Stated (Voice)</span>
+                </div>
+                <p style="font-size: 12px; color: #059669; margin: 0 0 4px 0;">${data.message || 'Corroborated and resolved.'}</p>
+                ${data.transcript ? `<p style="font-size: 11px; color: #4B5563; margin: 0; font-style: italic;">"${data.transcript}"</p>` : ''}
+              `;
+            }
+          } else {
+            alert(data.message || "Failed to resolve gap with voice answer.");
+            if (card) card.style.opacity = "1";
+          }
+        } catch (err) {
+          alert("Error resolving gap: " + err.message);
+          if (card) card.style.opacity = "1";
+        } finally {
+          hideLoadingOverlay();
+        }
+      };
+
+      gapMediaRecorder.start();
+      isGapRecording = true;
+
+      // Update mic UI to RED recording state
+      if (micEl) {
+        micEl.style.background = "#DC2626";
+        micEl.style.borderColor = "#EF4444";
+        const svg = micEl.querySelector("svg");
+        if (svg) svg.style.stroke = "#FFFFFF";
+      }
+      if (captionEl) {
+        captionEl.style.color = "#DC2626";
+        captionEl.innerText = "● Recording... tap to finish";
+      }
+
+    } catch (err) {
+      alert("Microphone access unavailable or denied: " + err.message);
+    }
+  } else {
+    // Stop recording
+    if (gapMediaRecorder && gapMediaRecorder.state !== "inactive") {
+      gapMediaRecorder.stop();
+      gapMediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+    isGapRecording = false;
+
+    if (micEl) {
+      micEl.style.background = "#F3F4F6";
+      micEl.style.borderColor = "#D1D5DB";
+      const svg = micEl.querySelector("svg");
+      if (svg) svg.style.stroke = "#6B7280";
+    }
+    if (captionEl) {
+      captionEl.style.color = "#374151";
+      captionEl.innerText = "Processing voice answer...";
+    }
   }
 }
 
