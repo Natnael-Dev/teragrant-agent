@@ -17,11 +17,12 @@ from google.genai import types
 # Load environment variables from .env file
 load_dotenv()
 
-# Fallback chain for automatic failover when a model returns 404 / retired / quota exceeded
+# Fallback chain for automatic failover when a model returns 404 / retired / quota exceeded / 503
 MODEL_FALLBACK_CHAIN: List[str] = [
     "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
 ]
 
 
@@ -188,8 +189,8 @@ def call_gemini_with_fallback(
                     errors[f"{candidate}_retry"] = str(retry_err)
                     continue  # Move to next model in chain
 
-            # If it's a 404, 429, not found, unsupported, deprecated, or quota error, log and move to next
-            if any(k in err_str for k in ("404", "429", "not found", "is not supported", "quota", "deprecated", "resource_exhausted", "permission_denied", "403", "invalid_argument", "400")):
+            # If it's a 404, 429, 503, unavailable, not found, unsupported, deprecated, or quota error, log and move to next
+            if any(k in err_str for k in ("404", "429", "503", "unavailable", "high demand", "overloaded", "not found", "is not supported", "quota", "deprecated", "resource_exhausted", "permission_denied", "403", "invalid_argument", "400")):
                 continue
 
     # Check if ALL models failed due to 429 / RESOURCE_EXHAUSTED / quota

@@ -73,7 +73,7 @@ def transcribe_step1(
     audio_bytes: bytes,
     ext: str = "mp3",
     lang: str = "English",
-    model: str = "gemini-2.5-flash",
+    model: str = "gemini-3.6-flash",
     api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """

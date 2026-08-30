@@ -606,7 +606,7 @@ else:
 
             model_choice = st.selectbox(
                 "Model Fallback Lead",
-                options=["gemini-2.5-flash", "gemini-3.5-flash", "gemini-2.5-pro"],
+                options=["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
                 index=0,
             )
             st.session_state["lead_model"] = model_choice
@@ -724,7 +724,7 @@ if st.session_state["page"] == "my_application" and st.session_state.get("step",
         if st.session_state.get("step1_audio_raw") != audio_bytes_found:
             st.session_state["step1_audio_raw"] = audio_bytes_found
             with st.spinner("🎙️ Extracting facts with zero-hallucination auditor..."):
-                lead_mod = st.session_state.get("lead_model", "gemini-2.5-flash")
+                lead_mod = st.session_state.get("lead_model", "gemini-3.6-flash")
                 cur_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
                 res = transcribe_step1(
                     audio_bytes=audio_bytes_found,
@@ -901,7 +901,7 @@ elif st.session_state["page"] == "my_application" and st.session_state.get("step
     with col_s2_b2:
         if st.button("⚡ Process & Build Full Dossier ›", type="primary", use_container_width=True, key="btn_s2_process"):
             with st.spinner("🚀 Running multimodal parallel extraction, mapping, and rubric evaluation..."):
-                lead_mod = st.session_state.get("lead_model", "gemini-2.5-flash")
+                lead_mod = st.session_state.get("lead_model", "gemini-3.6-flash")
                 cur_key = os.getenv("GEMINI_API_KEY") or st.session_state.get("api_key")
 
                 temp_v_path = None
