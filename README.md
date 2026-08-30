@@ -1,6 +1,8 @@
 # 🌱 TeraGrant Agent
 ### AI Builder Hackathon 2026 — Challenge 1: SME Grant Automation System
 
+> **DEMO**: run `start_demo.bat` and open **http://localhost:8000** (NOT 8501).
+
 **TeraGrant Agent** is an end-to-end multi-agent AI system designed to solve the grant access bottleneck for micro, small, and medium enterprises (MSMEs) in Ethiopia and East Africa. 
 
 It takes **unseen, unstructured inputs** (a photo of a paper trade license and a spoken voice note in Amharic, Afaan Oromo, or English) and transforms them into an **audit-grade, fundable grant application pack**, evaluates eligibility deterministically, scores across a 100-point matrix, detects cross-document discrepancies, and defends ranked portfolio shortlists for investment committees.

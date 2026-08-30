@@ -1,0 +1,3 @@
+@echo off
+echo Starting TeraGrant on http://localhost:8000 ...
+python -m uvicorn app.server:app --host 127.0.0.1 --port 8000
