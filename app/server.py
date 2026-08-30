@@ -7,6 +7,7 @@ import io
 import os
 import json
 import hashlib
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
@@ -183,6 +184,10 @@ async def wizard_step(
             "applicant_name": app_name,
             "session": SESSION,
             "twin": SESSION.get("digital_twin_data", {}),
+            "pack": SESSION.get("pack_res"),
+            "provenance": (SESSION.get("pack_res").provenance if SESSION.get("pack_res") else {}) or {},
+            "license_data": SESSION.get("license_data"),
+            "workshop_data": SESSION.get("workshop_data"),
             "score": SESSION.get("scoring_res"),
             "provisional_score": score_val,
             "grid_comparison": grid_comparison,
@@ -392,51 +397,201 @@ async def api_transcribe(
     })
 
 
-# API: MULTIMODAL PROCESS & SCORING
+# API: MULTIMODAL PROCESS & SCORING (BATCH 33F - REAL EXTRACTION & ZERO FABRICATION)
 @app.post("/api/process")
 async def api_process(
     license: Optional[UploadFile] = File(None),
-    workshop: Optional[UploadFile] = File(None)
+    workshop: Optional[UploadFile] = File(None),
+    use_preset: Optional[str] = Form(None)
 ):
-    # 50MB Size Check
+    lic_bytes = None
+    work_bytes = None
+    lic_len = 0
+    work_len = 0
+
     if license and license.filename:
         lic_bytes = await license.read()
-        if len(lic_bytes) > MAX_FILE_SIZE_BYTES:
+        lic_len = len(lic_bytes)
+        if lic_len > MAX_FILE_SIZE_BYTES:
             return JSONResponse(status_code=400, content={
                 "status": "error",
                 "message": "License image exceeds 50MB limit."
             })
+
     if workshop and workshop.filename:
         work_bytes = await workshop.read()
-        if len(work_bytes) > MAX_FILE_SIZE_BYTES:
+        work_len = len(work_bytes)
+        if work_len > MAX_FILE_SIZE_BYTES:
             return JSONResponse(status_code=400, content={
                 "status": "error",
                 "message": "Workshop image exceeds 50MB limit."
             })
 
-    # Build deterministic pack and scoring state
-    dt = SESSION.get("digital_twin_data", {})
-    b_name = dt.get("company_name", "Almaz Spice Mill PLC")
-    SESSION["applicant_name"] = b_name
-    SESSION["processed"] = True
+    # Diagnostic logging (Step 0)
+    print(f"[/api/process] License bytes: {lic_len}, Workshop bytes: {work_len}, Preset: {use_preset}")
 
-    # Invalidate reviewer cache since SESSION changed
-    invalidate_reviewer_cache("session")
+    # Fallback to test presets if explicitly requested or if no files provided
+    preset_dir = PROJECT_ROOT / "data" / "test_assets"
+    if (not lic_bytes or lic_len < 100) and (use_preset == "true" or (not lic_bytes and not work_bytes and not SESSION.get("audio_data"))):
+        preset_lic = preset_dir / "license_clean.png"
+        if not preset_lic.exists():
+            preset_lic = preset_dir / "license_clean.jpg"
+        if preset_lic.exists():
+            with open(preset_lic, "rb") as f:
+                lic_bytes = f.read()
 
-    # Return structured 4-step summary
-    return JSONResponse(content={
-        "status": "success",
-        "message": "Dossier processed successfully.",
-        "applicant": SESSION["applicant_name"],
-        "readiness_pct": 88,
-        "score": 74,
-        "summary_chips": [
-            "Trade License Verified",
-            "Workshop Facility Inspected",
-            "Digital Twin Synthesized",
-            "Rubric Scored: 74/100"
-        ]
-    })
+    if (not work_bytes or work_len < 100) and (use_preset == "true" or (not work_bytes and not SESSION.get("audio_data"))):
+        preset_work = preset_dir / "workshop_berbere.jpg"
+        if not preset_work.exists():
+            preset_work = preset_dir / "wor.png"
+        if preset_work.exists():
+            with open(preset_work, "rb") as f:
+                work_bytes = f.read()
+
+    temp_lic_path = None
+    temp_work_path = None
+
+    try:
+        if lic_bytes and len(lic_bytes) > 100:
+            ext = ".png" if (license and license.filename and license.filename.endswith(".png")) else ".jpg"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                tmp.write(lic_bytes)
+                temp_lic_path = tmp.name
+
+        if work_bytes and len(work_bytes) > 100:
+            ext = ".png" if (workshop and workshop.filename and workshop.filename.endswith(".png")) else ".jpg"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                tmp.write(work_bytes)
+                temp_work_path = tmp.name
+
+        # Audio from active session
+        audio_data = SESSION.get("audio_data")
+
+        # Run extraction in parallel if paths exist
+        lic_res = None
+        work_res = None
+        intake_gaps = []
+        if temp_lic_path or temp_work_path:
+            _, lic_res, work_res, timings, intake_gaps = run_intake_parallel(
+                voice_path=None,
+                license_path=temp_lic_path,
+                workshop_path=temp_work_path,
+            )
+
+        # Generate application pack with zero-fabrication policy
+        pack_res = generate_application_pack(
+            license_data=lic_res,
+            audio_data=audio_data,
+            workshop_data=work_res,
+        )
+
+        if intake_gaps and pack_res.gaps is not None:
+            pack_res.gaps.extend(intake_gaps)
+
+        # Router & Scoring
+        routed_variant = route_to_grid_variant(pack_res.application, pack_res.impact)
+        scoring_res = score_application(pack=pack_res, variant=routed_variant)
+        sensitivity_res = score_sensitivity(pack_res, scoring_res)
+        readiness_res = submission_readiness(pack_res, scoring_res.eligibility_gate, contradictions=[])
+
+        # Extract Digital Twin facts from real pack/license/audio
+        b_name = None
+        tin_num = None
+        loc_str = None
+        staff_cnt = None
+        turnover_val = None
+        mach_req = None
+
+        if pack_res.application and pack_res.application.business_info:
+            b_name = pack_res.application.business_info.business_name
+            tin_num = pack_res.application.business_info.tin_number
+            loc_str = pack_res.application.business_info.location
+        if not b_name and lic_res and lic_res.business_name:
+            b_name = lic_res.business_name
+        if not b_name and audio_data and audio_data.business_name:
+            b_name = audio_data.business_name
+        if not tin_num and lic_res and lic_res.tin_number:
+            tin_num = lic_res.tin_number
+        if not loc_str and lic_res and lic_res.location:
+            loc_str = lic_res.location
+        elif not loc_str and audio_data and audio_data.location:
+            loc_str = audio_data.location
+
+        if pack_res.application and pack_res.application.employment:
+            staff_cnt = pack_res.application.employment.total_staff
+        elif audio_data and audio_data.employee_count:
+            staff_cnt = audio_data.employee_count
+        elif work_res and work_res.estimated_people_present:
+            staff_cnt = work_res.estimated_people_present
+
+        if pack_res.application and pack_res.application.financials and pack_res.application.financials.sales_history:
+            turnover_val = pack_res.application.financials.sales_history[0].revenue_etb
+
+        if work_res and work_res.visible_machinery:
+            mach_req = ", ".join(work_res.visible_machinery[:2])
+        elif audio_data and audio_data.product_type:
+            mach_req = f"{audio_data.product_type} Processing Equipment"
+
+        # Update SESSION state
+        SESSION["license_data"] = lic_res
+        SESSION["workshop_data"] = work_res
+        SESSION["pack_res"] = pack_res
+        SESSION["scoring_res"] = scoring_res
+        SESSION["readiness_res"] = readiness_res
+        SESSION["sensitivity_res"] = sensitivity_res
+        SESSION["applicant_name"] = b_name or (lic_res.business_name if (lic_res and lic_res.business_name) else "New Applicant")
+        SESSION["digital_twin_data"] = {
+            "company_name": b_name,
+            "tin_number": tin_num,
+            "location": loc_str,
+            "total_staff": staff_cnt,
+            "annual_sales": turnover_val,
+            "machinery_requested": mach_req,
+        }
+        SESSION["processed"] = True
+
+        # Invalidate reviewer cache since SESSION changed
+        invalidate_reviewer_cache("session")
+
+        # Dynamic summary chips based on REAL outcomes
+        summary_chips = []
+        if lic_res and lic_res.is_legible and lic_res.tin_number:
+            summary_chips.append("Trade License Verified")
+        elif lic_res and not lic_res.is_legible:
+            summary_chips.append("Trade License Unreadable")
+        elif lic_res:
+            summary_chips.append("Trade License Read")
+        else:
+            summary_chips.append("Trade License Missing")
+
+        if work_res and work_res.is_legible:
+            summary_chips.append("Workshop Facility Inspected")
+        elif work_res and not work_res.is_legible:
+            summary_chips.append("Workshop Photo Unclear")
+        elif work_res:
+            summary_chips.append("Workshop Inspected")
+        else:
+            summary_chips.append("Workshop Photo Missing")
+
+        summary_chips.append("Digital Twin Synthesized")
+        summary_chips.append(f"Rubric Scored: {scoring_res.total_score}/100")
+
+        return JSONResponse(content={
+            "status": "success",
+            "message": "Dossier processed successfully.",
+            "applicant": SESSION["applicant_name"],
+            "readiness_pct": readiness_res.get("readiness_pct", 88),
+            "score": scoring_res.total_score,
+            "summary_chips": summary_chips
+        })
+
+    finally:
+        for p in [temp_lic_path, temp_work_path]:
+            if p and os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
 
 
 # API: CONSENT RECORDING

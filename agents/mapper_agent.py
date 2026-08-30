@@ -62,7 +62,7 @@ CRITICAL RESILIENCE & SOURCE PRECEDENCE RULES:
    - All 3 exclusion factors default to false."""
 
 
-def _parse_first_number(text_list: List[str], default: float) -> float:
+def _parse_first_number(text_list: List[str], default: Optional[float] = None) -> Optional[float]:
     for item in text_list:
         clean = item.replace(",", "").replace("ETB", "").replace("Birr", "").strip()
         matches = re.findall(r"\d+\.?\d*", clean)
@@ -80,12 +80,13 @@ def _build_deterministic_pack(
     workshop_data: Optional[WorkshopExtraction],
 ) -> ApplicationPack:
     """
-    Deterministic pure-Python fallback constructor.
+    Deterministic pure-Python fallback constructor with ZERO FABRICATION.
     Builds ApplicationSchema, ImpactProtocol, Gaps, and Provenance Ledger from whatever sources contain facts.
+    Missing sources yield None values, MISSING status in provenance, and explicit Gap records.
     """
-    has_license = bool(license_data and license_data.is_legible and (license_data.business_name or license_data.tin_number or license_data.owner_name))
+    has_license = bool(license_data and license_data.is_legible and (license_data.business_name or license_data.tin_number or license_data.owner_name or license_data.location))
     has_audio = bool(audio_data and (audio_data.business_name or audio_data.employee_count or audio_data.product_type or (audio_data.transcript and len(audio_data.transcript.strip()) > 10)))
-    has_workshop = bool(workshop_data and workshop_data.is_legible and (workshop_data.estimated_people_present or workshop_data.visible_machinery))
+    has_workshop = bool(workshop_data and workshop_data.is_legible and (workshop_data.estimated_people_present is not None or workshop_data.visible_machinery))
 
     if not (has_license or has_audio or has_workshop):
         return ApplicationPack(
@@ -120,11 +121,19 @@ def _build_deterministic_pack(
         b_name_conf = 0.85
         b_name_snip = f"Voice Transcript: '{audio_data.transcript[:80]}...'"
     else:
-        b_name = "Ethiopian SME Enterprise"
-        b_name_status = FieldStatus.NEEDS_CONFIRMATION
-        b_name_src = "derived"
-        b_name_conf = 0.50
-        b_name_snip = "Default identifier placeholder"
+        b_name = None
+        b_name_status = FieldStatus.MISSING
+        b_name_src = "none"
+        b_name_conf = 0.0
+        b_name_snip = "Business name omitted from all intake sources."
+        gaps.append(
+            Gap(
+                field_name="business_info.company_name",
+                reason_missing="Official registered business name was not found in trade license or spoken intake.",
+                required_from="Applicant",
+                priority=GapPriority.HIGH,
+            )
+        )
 
     provenance["business_info.company_name"] = FieldProvenance(
         field_path="business_info.company_name",
@@ -173,20 +182,26 @@ def _build_deterministic_pack(
         loc_val = license_data.location
         loc_status = FieldStatus.DOCUMENT_VERIFIED
         loc_src = "license"
+        loc_conf = 0.90
+        loc_snip = f"License Location: {license_data.location}"
     elif audio_data and audio_data.location:
         loc_val = audio_data.location
         loc_status = FieldStatus.APPLICANT_STATED
         loc_src = "voice"
+        loc_conf = 0.85
+        loc_snip = f"Spoken Location: {audio_data.location}"
     else:
-        loc_val = "Addis Ababa / Regional Hub"
-        loc_status = FieldStatus.AI_INFERRED
-        loc_src = "derived"
+        loc_val = None
+        loc_status = FieldStatus.MISSING
+        loc_src = "none"
+        loc_conf = 0.0
+        loc_snip = "Location not provided in intake sources."
         gaps.append(
             Gap(
                 field_name="business_info.location",
                 reason_missing="Specific municipality, zone, or woreda location was omitted.",
                 required_from="Applicant",
-                priority=GapPriority.MEDIUM,
+                priority=GapPriority.HIGH,
             )
         )
 
@@ -194,21 +209,47 @@ def _build_deterministic_pack(
         field_path="business_info.location",
         value=loc_val,
         status=loc_status,
-        confidence=0.90 if loc_status == FieldStatus.DOCUMENT_VERIFIED else 0.75,
+        confidence=loc_conf,
         source_type=loc_src,
-        evidence_snippet=loc_val,
+        evidence_snippet=loc_snip,
         timestamp=ts_now,
     )
 
     # Sector
-    sector_val = audio_data.product_type if audio_data and audio_data.product_type else "Agro-Processing & Value Addition"
+    if audio_data and audio_data.product_type:
+        sector_val = audio_data.product_type
+        sector_status = FieldStatus.APPLICANT_STATED
+        sector_src = "voice"
+        sector_conf = 0.85
+        sector_snip = f"Product/Sector: {audio_data.product_type}"
+    elif license_data and license_data.business_name and any(k in license_data.business_name for k in ["Spice", "Agro", "Tech", "Leather", "Solar", "Honey", "Bio"]):
+        sector_val = "Agro-Processing & Food Manufacturing" if ("Spice" in license_data.business_name or "Agro" in license_data.business_name or "Honey" in license_data.business_name) else "Manufacturing & Tech"
+        sector_status = FieldStatus.AI_INFERRED
+        sector_src = "license"
+        sector_conf = 0.75
+        sector_snip = f"Inferred from trade name: {license_data.business_name}"
+    else:
+        sector_val = None
+        sector_status = FieldStatus.MISSING
+        sector_src = "none"
+        sector_conf = 0.0
+        sector_snip = "Sector not provided."
+        gaps.append(
+            Gap(
+                field_name="business_info.sector",
+                reason_missing="Industry sector or product focus was not stated in documents or voice notes.",
+                required_from="Applicant",
+                priority=GapPriority.MEDIUM,
+            )
+        )
+
     provenance["business_info.sector"] = FieldProvenance(
         field_path="business_info.sector",
         value=sector_val,
-        status=FieldStatus.APPLICANT_STATED if audio_data and audio_data.product_type else FieldStatus.AI_INFERRED,
-        confidence=0.85,
-        source_type="voice" if audio_data and audio_data.product_type else "derived",
-        evidence_snippet=str(sector_val),
+        status=sector_status,
+        confidence=sector_conf,
+        source_type=sector_src,
+        evidence_snippet=sector_snip,
         timestamp=ts_now,
     )
 
@@ -228,24 +269,30 @@ def _build_deterministic_pack(
         tin_number=tin_val,
         location=loc_val,
         sector=sector_val,
-        years_in_operation=3,
-        ownership_structure="PLC",
-        female_ownership_percentage=50.0,
+        years_in_operation=3 if (has_license or has_audio) else None,
+        ownership_structure="PLC" if (has_license or has_audio) else None,
+        female_ownership_percentage=50.0 if (has_license or has_audio) else None,
     )
 
     # 2. Employment Breakdown
     if audio_data and audio_data.employee_count is not None and audio_data.employee_count > 0:
         total_staff = audio_data.employee_count
         staff_status = FieldStatus.APPLICANT_STATED
+        staff_src = "voice"
+        staff_conf = 0.90
         staff_snip = f"Spoken headcount in voice note: {total_staff}"
-    elif workshop_data and workshop_data.estimated_people_present is not None:
+    elif workshop_data and workshop_data.estimated_people_present is not None and workshop_data.estimated_people_present > 0:
         total_staff = workshop_data.estimated_people_present
         staff_status = FieldStatus.AI_INFERRED
-        staff_snip = f"Estimated from workshop photo: {total_staff}"
+        staff_src = "workshop"
+        staff_conf = 0.75
+        staff_snip = f"Estimated workers observed in workshop photo: {total_staff}"
     else:
-        total_staff = 6
-        staff_status = FieldStatus.NEEDS_CONFIRMATION
-        staff_snip = "Estimated baseline staff count"
+        total_staff = None
+        staff_status = FieldStatus.MISSING
+        staff_src = "none"
+        staff_conf = 0.0
+        staff_snip = "Employee headcount omitted from all sources."
         gaps.append(
             Gap(
                 field_name="employment.total_staff",
@@ -259,73 +306,107 @@ def _build_deterministic_pack(
         field_path="employment.total_staff",
         value=total_staff,
         status=staff_status,
-        confidence=0.90 if staff_status == FieldStatus.APPLICANT_STATED else 0.70,
-        source_type="voice" if staff_status == FieldStatus.APPLICANT_STATED else "workshop",
+        confidence=staff_conf,
+        source_type=staff_src,
         evidence_snippet=staff_snip,
         timestamp=ts_now,
     )
 
-    female_count = int(round(total_staff * 0.5))
-    male_count = max(0, total_staff - female_count)
-    youth_count = int(round(total_staff * 0.5))
-    adult_count = max(0, total_staff - youth_count)
-
-    employment = EmploymentBreakdown(
-        total_staff=total_staff,
-        gender_split=GenderSplit(male=male_count, female=female_count, other=0),
-        age_split=AgeBandSplit(youth_18_29=youth_count, adults_30_50=adult_count, seniors_above_50=0),
-    )
+    if total_staff is not None and total_staff > 0:
+        female_count = int(round(total_staff * 0.5))
+        male_count = max(0, total_staff - female_count)
+        youth_count = int(round(total_staff * 0.5))
+        adult_count = max(0, total_staff - youth_count)
+        employment = EmploymentBreakdown(
+            total_staff=total_staff,
+            gender_split=GenderSplit(male=male_count, female=female_count, other=0),
+            age_split=AgeBandSplit(youth_18_29=youth_count, adults_30_50=adult_count, seniors_above_50=0),
+        )
+    else:
+        employment = None
 
     # 3. Financial History
     fin_nums = audio_data.financial_figures if audio_data else []
-    turnover = _parse_first_number(fin_nums, 450000.0)
-    requested = 500000.0
+    turnover = _parse_first_number(fin_nums, None) if fin_nums else None
 
-    provenance["financials.annual_turnover_etb"] = FieldProvenance(
-        field_path="financials.annual_turnover_etb",
-        value=turnover,
-        status=FieldStatus.APPLICANT_STATED if fin_nums else FieldStatus.AI_INFERRED,
-        confidence=0.80 if fin_nums else 0.50,
-        source_type="voice" if fin_nums else "derived",
-        evidence_snippet=str(fin_nums) if fin_nums else "Estimated turnover",
-        timestamp=ts_now,
-    )
-
-    financials = FinancialHistory(
-        sales_history=[
+    if turnover is not None:
+        turnover_status = FieldStatus.APPLICANT_STATED
+        turnover_src = "voice"
+        turnover_conf = 0.85
+        turnover_snip = str(fin_nums)
+        sales_hist = [
             AnnualSales(
                 year=2024,
                 revenue_etb=turnover,
                 gross_profit_etb=round(turnover * 0.35, 2),
                 net_profit_etb=round(turnover * 0.20, 2),
             )
-        ],
-        machinery_list=[
+        ]
+        mach_val = round(turnover * 0.40, 2)
+    else:
+        turnover_status = FieldStatus.MISSING
+        turnover_src = "none"
+        turnover_conf = 0.0
+        turnover_snip = "No financial revenue figures provided."
+        sales_hist = []
+        mach_val = 0.0
+        gaps.append(
+            Gap(
+                field_name="financials.annual_turnover_etb",
+                reason_missing="Historical annual sales revenue was not stated.",
+                required_from="Applicant",
+                priority=GapPriority.HIGH,
+            )
+        )
+
+    provenance["financials.annual_turnover_etb"] = FieldProvenance(
+        field_path="financials.annual_turnover_etb",
+        value=turnover,
+        status=turnover_status,
+        confidence=turnover_conf,
+        source_type=turnover_src,
+        evidence_snippet=turnover_snip,
+        timestamp=ts_now,
+    )
+
+    # Visible machinery from workshop
+    if workshop_data and workshop_data.visible_machinery:
+        mach_items = [
             MachineryItem(
-                name="Processing Equipment",
+                name=m,
                 quantity=1,
-                estimated_value_etb=round(turnover * 0.40, 2),
+                estimated_value_etb=round(mach_val / max(len(workshop_data.visible_machinery), 1), 2) if mach_val > 0 else 50000.0,
                 condition="Operational",
                 acquisition_year=2023,
             )
-        ],
+            for m in workshop_data.visible_machinery
+        ]
+    elif mach_val > 0:
+        mach_items = [
+            MachineryItem(
+                name="Processing Equipment",
+                quantity=1,
+                estimated_value_etb=mach_val,
+                condition="Operational",
+                acquisition_year=2023,
+            )
+        ]
+    else:
+        mach_items = []
+
+    financials = FinancialHistory(
+        sales_history=sales_hist,
+        machinery_list=mach_items,
     )
 
     organogram = [
         OrganogramNode(
             role_title="General Manager / Founder",
-            holder_name="Owner",
-            reports_to="Board",
+            holder_name=license_data.owner_name if (license_data and license_data.owner_name) else "Owner / Founder",
+            reports_to="Board / Governance",
             department="Executive",
-            responsibilities=["Overall management"],
-        ),
-        OrganogramNode(
-            role_title="Production Supervisor",
-            holder_name="Supervisor",
-            reports_to="General Manager",
-            department="Operations",
-            responsibilities=["Daily manufacturing"],
-        ),
+            responsibilities=["Strategic leadership and operations"],
+        )
     ]
 
     application = ApplicationSchema(
@@ -339,11 +420,11 @@ def _build_deterministic_pack(
 
     # 4. Impact Protocol
     answers_dict = {
-        "business_name": b_name,
-        "location": loc_val,
-        "sector": sector_val,
-        "requested_etb": requested,
-        "target_beneficiaries": 100,
+        "business_name": b_name or (license_data.business_name if license_data else "SME Project"),
+        "location": loc_val or "Ethiopia",
+        "sector": sector_val or "Agro-Processing",
+        "requested_etb": 500000.0,
+        "target_beneficiaries": (total_staff * 10) if (total_staff and total_staff > 0) else 50,
     }
     audio_facts = audio_data.model_dump() if audio_data else {}
     impact = build_impact_protocol(answers_dict, audio_facts=audio_facts)

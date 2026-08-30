@@ -45,47 +45,144 @@
         </tr>
       </thead>
       <tbody>
+        <!-- Business Name -->
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Legal Business Name</td>
-          <td style="padding: 12px 0;">{{ twin.company_name or session.applicant_name or 'Awaiting intake' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Trade License</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">98%</td>
+          <td style="padding: 12px 0;">
+            {% if twin.company_name %}
+              <strong>{{ twin.company_name }}</strong>
+            {% else %}
+              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.company_name %}
+              <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Trade License' if twin.company_name else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#059669' if twin.company_name else '#DC2626' }};">{{ '98%' if twin.company_name else '0%' }}</td>
         </tr>
+        {% if provenance and 'business_info.company_name' in provenance and provenance['business_info.company_name'].evidence_snippet %}
+        <tr style="background: #F9FAFB; font-size: 11px; color: #4B5563;">
+          <td colspan="5" style="padding: 6px 12px; border-bottom: 1px solid #E5E7EB;">
+            <span style="font-weight: 600; color: #059669;">Evidence Snippet:</span> {{ provenance['business_info.company_name'].evidence_snippet }}
+          </td>
+        </tr>
+        {% endif %}
+
+        <!-- TIN Number -->
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">TIN Number</td>
-          <td style="padding: 12px 0;">{{ twin.tin_number or 'Awaiting verification' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Trade License</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #059669;">95%</td>
+          <td style="padding: 12px 0;">
+            {% if twin.tin_number %}
+              <code>{{ twin.tin_number }}</code>
+            {% else %}
+              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.tin_number %}
+              <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Trade License' if twin.tin_number else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#059669' if twin.tin_number else '#DC2626' }};">{{ '95%' if twin.tin_number else '0%' }}</td>
         </tr>
+        {% if provenance and 'business_info.tin_number' in provenance and provenance['business_info.tin_number'].evidence_snippet %}
+        <tr style="background: #F9FAFB; font-size: 11px; color: #4B5563;">
+          <td colspan="5" style="padding: 6px 12px; border-bottom: 1px solid #E5E7EB;">
+            <span style="font-weight: 600; color: #059669;">Evidence Snippet:</span> {{ provenance['business_info.tin_number'].evidence_snippet }}
+          </td>
+        </tr>
+        {% endif %}
+
+        <!-- Location -->
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Location & Kebele</td>
-          <td style="padding: 12px 0;">{{ twin.location or 'Awaiting intake' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">92%</td>
+          <td style="padding: 12px 0;">
+            {% if twin.location %}
+              {{ twin.location }}
+            {% else %}
+              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.location %}
+              <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Trade License / Voice' if twin.location else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#059669' if twin.location else '#DC2626' }};">{{ '92%' if twin.location else '0%' }}</td>
         </tr>
+
+        <!-- Total Staff -->
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Total Staff (Headcount)</td>
-          <td style="padding: 12px 0;">{{ (twin.total_staff ~ ' Employees') if twin.total_staff else 'Awaiting intake' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">90%</td>
+          <td style="padding: 12px 0;">
+            {% if twin.total_staff is not none and twin.total_staff > 0 %}
+              <strong>{{ twin.total_staff }} Employees</strong>
+            {% else %}
+              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.total_staff is not none and twin.total_staff > 0 %}
+              <span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Voice Note / Workshop' if twin.total_staff else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#2563EB' if twin.total_staff else '#DC2626' }};">{{ '90%' if twin.total_staff else '0%' }}</td>
         </tr>
+
+        <!-- Annual Turnover -->
         <tr style="border-bottom: 1px solid #F3F4F6;">
           <td style="padding: 12px 0; font-weight: 600;">Annual Turnover</td>
-          <td style="padding: 12px 0;">{{ ("{:,.0f}".format(twin.annual_sales) ~ ' ETB') if twin.annual_sales else 'Awaiting intake' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Voice Note</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #2563EB;">85%</td>
+          <td style="padding: 12px 0;">
+            {% if twin.annual_sales %}
+              <strong>{{ "{:,.0f}".format(twin.annual_sales) }} ETB</strong>
+            {% else %}
+              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.annual_sales %}
+              <span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Voice Note' if twin.annual_sales else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#2563EB' if twin.annual_sales else '#DC2626' }};">{{ '85%' if twin.annual_sales else '0%' }}</td>
         </tr>
+
+        <!-- Machinery Requested / Observed -->
         <tr>
-          <td style="padding: 12px 0; font-weight: 600;">Equipment Requested</td>
-          <td style="padding: 12px 0;">{{ twin.machinery_requested or 'Awaiting recommendation' }}</td>
-          <td style="padding: 12px 0;"><span class="chip chip-inferred">{{ icon('sparkles', size=11, color='#7C3AED') }} AI Inferred</span></td>
-          <td style="padding: 12px 0; color: #6B7280;">Impact Builder</td>
-          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: #7C3AED;">80%</td>
+          <td style="padding: 12px 0; font-weight: 600;">Equipment Requested / Observed</td>
+          <td style="padding: 12px 0;">
+            {% if twin.machinery_requested %}
+              {{ twin.machinery_requested }}
+            {% else %}
+              <span style="color: #6B7280; font-style: italic;">Awaiting recommendation</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0;">
+            {% if twin.machinery_requested %}
+              <span class="chip chip-inferred">{{ icon('sparkles', size=11, color='#7C3AED') }} AI Inferred</span>
+            {% else %}
+              <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
+            {% endif %}
+          </td>
+          <td style="padding: 12px 0; color: #6B7280;">{{ 'Workshop Inspection / Impact' if twin.machinery_requested else 'None' }}</td>
+          <td style="padding: 12px 0; text-align: right; font-weight: 700; color: {{ '#7C3AED' if twin.machinery_requested else '#DC2626' }};">{{ '80%' if twin.machinery_requested else '0%' }}</td>
         </tr>
       </tbody>
     </table>

@@ -58,14 +58,13 @@ class BusinessInfo(BaseModel):
     """Section 1.1: Business Information & Legal Profile."""
     model_config = ConfigDict(extra="forbid")
 
-    business_name: str = Field(..., min_length=2, max_length=255, description="Registered legal business name")
-    tin_number: Optional[str] = Field(None, min_length=9, max_length=15, description="Tax Identification Number (TIN)")
-    location: str = Field(..., min_length=2, description="Physical location/region/woreda/city")
-    sector: str = Field(..., min_length=2, description="Industry sector (e.g., Agri-tech, Manufacturing, Renewable Energy)")
-    years_in_operation: int = Field(..., ge=0, description="Years the enterprise has been actively operating")
-    ownership_structure: str = Field(
-        ...,
-        min_length=2,
+    business_name: Optional[str] = Field(None, max_length=255, description="Registered legal business name")
+    tin_number: Optional[str] = Field(None, max_length=15, description="Tax Identification Number (TIN)")
+    location: Optional[str] = Field(None, description="Physical location/region/woreda/city")
+    sector: Optional[str] = Field(None, description="Industry sector (e.g., Agri-tech, Manufacturing, Renewable Energy)")
+    years_in_operation: Optional[int] = Field(None, ge=0, description="Years the enterprise has been actively operating")
+    ownership_structure: Optional[str] = Field(
+        default=None,
         description="Legal ownership structure (e.g., Sole Proprietorship, PLC, Share Company, Cooperative)",
     )
     female_ownership_percentage: Optional[float] = Field(
@@ -259,8 +258,8 @@ class ApplicationSchema(BaseModel):
     """
     model_config = ConfigDict(extra="forbid")
 
-    business_info: BusinessInfo = Field(..., description="Section 1.1: Business Information")
-    employment: EmploymentBreakdown = Field(..., description="Section 1.2: Employment Breakdown")
+    business_info: Optional[BusinessInfo] = Field(default=None, description="Section 1.1: Business Information")
+    employment: Optional[EmploymentBreakdown] = Field(default=None, description="Section 1.2: Employment Breakdown")
     financials: FinancialHistory = Field(
         default_factory=FinancialHistory,
         description="Sections 2.1 - 2.3: Financial History & Machinery"

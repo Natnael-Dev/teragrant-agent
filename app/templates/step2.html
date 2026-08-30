@@ -42,6 +42,7 @@
   <div id="step2-alert-box" style="margin-bottom: 16px;"></div>
 
   <form id="upload-form" action="/api/process" method="POST" enctype="multipart/form-data">
+    <input type="hidden" id="use_preset_input" name="use_preset" value="false">
     <div class="upload-cards-grid">
       <!-- Card 1: Trade Licence -->
       <div class="upload-dropzone">

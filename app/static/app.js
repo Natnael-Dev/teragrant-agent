@@ -316,6 +316,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Step 2 File Preview with 50MB check
 function previewFile(input, targetId) {
+  const presetInput = document.getElementById('use_preset_input');
+  if (presetInput) presetInput.value = "false";
   if (input.files && input.files[0]) {
     const file = input.files[0];
     if (file.size > MAX_FILE_SIZE) {
@@ -336,11 +338,13 @@ function previewFile(input, targetId) {
 
 // Step 2 Preset Loader
 function loadUnseenPreset() {
-  document.getElementById('lic-preview').innerHTML = '<div style="font-size: 13px; color: #059669; font-weight: 700;">✓ Attached: License (Municipal Registration)</div>';
+  const presetInput = document.getElementById('use_preset_input');
+  if (presetInput) presetInput.value = "true";
+  document.getElementById('lic-preview').innerHTML = '<div style="font-size: 13px; color: #059669; font-weight: 700;">✓ Attached: License (Dexter Spice Mill)</div>';
   document.getElementById('work-preview').innerHTML = '<div style="font-size: 13px; color: #059669; font-weight: 700;">✓ Attached: Facility Machinery Photo</div>';
   const alertBox = document.getElementById('step2-alert-box');
   if (alertBox) {
-    alertBox.innerHTML = '<div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 600;">✓ Sample test documents attached! Click "Process & Score" below.</div>';
+    alertBox.innerHTML = '<div style="background: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; padding: 12px; border-radius: 8px; font-size: 13px; font-weight: 600;">✓ Sample test documents attached (Dexter Spice Mill & Workshop)! Click "Process & Score" below.</div>';
   }
 }
 
