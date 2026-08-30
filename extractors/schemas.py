@@ -34,6 +34,14 @@ class LicenseExtraction(BaseModel):
         default=None,
         description="Registered address, city, sub-city, zone, or woreda/region"
     )
+    total_staff: Optional[int] = Field(
+        default=None,
+        description="Optional registered employee count on license or registration certificate"
+    )
+    employee_count: Optional[int] = Field(
+        default=None,
+        description="Optional registered employee count on license"
+    )
     is_legible: bool = Field(
         default=True,
         description="False if the document is excessively blurry, obscured, corrupted, or unreadable"

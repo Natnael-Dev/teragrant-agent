@@ -108,14 +108,40 @@ def _build_deterministic_pack(
     ts_now = datetime.now(timezone.utc).isoformat()
 
     # 1. Business Info
-    if has_license and license_data.business_name:
-        b_name = license_data.business_name
+    lic_name = license_data.business_name.strip() if (has_license and license_data and license_data.business_name and license_data.business_name.strip()) else None
+    aud_name = audio_data.business_name.strip() if (audio_data and audio_data.business_name and audio_data.business_name.strip()) else None
+
+    if lic_name and aud_name:
+        lic_norm = re.sub(r"\s+", " ", lic_name).strip().lower()
+        aud_norm = re.sub(r"\s+", " ", aud_name).strip().lower()
+        if lic_norm != aud_norm:
+            b_name = lic_name
+            b_name_status = FieldStatus.CONTRADICTED
+            b_name_src = "license"
+            b_name_conf = 0.4
+            b_name_snip = f"Voice: {aud_name} | License: {lic_name}"
+            gaps.append(
+                Gap(
+                    field_name="business_info.company_name",
+                    reason_missing="Sources disagree — applicant must confirm",
+                    required_from="Applicant",
+                    priority=GapPriority.HIGH,
+                )
+            )
+        else:
+            b_name = lic_name
+            b_name_status = FieldStatus.DOCUMENT_VERIFIED
+            b_name_src = "license"
+            b_name_conf = 0.95
+            b_name_snip = f"Official Trade License OCR: {lic_name}"
+    elif lic_name:
+        b_name = lic_name
         b_name_status = FieldStatus.DOCUMENT_VERIFIED
         b_name_src = "license"
         b_name_conf = 0.95
-        b_name_snip = f"Official Trade License OCR: {license_data.business_name}"
-    elif audio_data and audio_data.business_name:
-        b_name = audio_data.business_name
+        b_name_snip = f"Official Trade License OCR: {lic_name}"
+    elif aud_name:
+        b_name = aud_name
         b_name_status = FieldStatus.APPLICANT_STATED
         b_name_src = "voice"
         b_name_conf = 0.85
@@ -178,18 +204,44 @@ def _build_deterministic_pack(
         )
 
     # Location
-    if has_license and license_data.location:
-        loc_val = license_data.location
+    lic_loc = license_data.location.strip() if (has_license and license_data and license_data.location and license_data.location.strip()) else None
+    aud_loc = audio_data.location.strip() if (audio_data and audio_data.location and audio_data.location.strip()) else None
+
+    if lic_loc and aud_loc:
+        lic_norm = re.sub(r"\s+", " ", lic_loc).strip().lower()
+        aud_norm = re.sub(r"\s+", " ", aud_loc).strip().lower()
+        if lic_norm != aud_norm:
+            loc_val = lic_loc
+            loc_status = FieldStatus.CONTRADICTED
+            loc_src = "license"
+            loc_conf = 0.4
+            loc_snip = f"Voice: {aud_loc} | License: {lic_loc}"
+            gaps.append(
+                Gap(
+                    field_name="business_info.location",
+                    reason_missing="Sources disagree — applicant must confirm",
+                    required_from="Applicant",
+                    priority=GapPriority.HIGH,
+                )
+            )
+        else:
+            loc_val = lic_loc
+            loc_status = FieldStatus.DOCUMENT_VERIFIED
+            loc_src = "license"
+            loc_conf = 0.90
+            loc_snip = f"License Location: {lic_loc}"
+    elif lic_loc:
+        loc_val = lic_loc
         loc_status = FieldStatus.DOCUMENT_VERIFIED
         loc_src = "license"
         loc_conf = 0.90
-        loc_snip = f"License Location: {license_data.location}"
-    elif audio_data and audio_data.location:
-        loc_val = audio_data.location
+        loc_snip = f"License Location: {lic_loc}"
+    elif aud_loc:
+        loc_val = aud_loc
         loc_status = FieldStatus.APPLICANT_STATED
         loc_src = "voice"
         loc_conf = 0.85
-        loc_snip = f"Spoken Location: {audio_data.location}"
+        loc_snip = f"Spoken Location: {aud_loc}"
     else:
         loc_val = None
         loc_status = FieldStatus.MISSING
@@ -275,8 +327,40 @@ def _build_deterministic_pack(
     )
 
     # 2. Employment Breakdown
-    if audio_data and audio_data.employee_count is not None and audio_data.employee_count > 0:
-        total_staff = audio_data.employee_count
+    lic_staff_raw = (getattr(license_data, "total_staff", None) or getattr(license_data, "employee_count", None)) if license_data else None
+    aud_staff_raw = audio_data.employee_count if (audio_data and audio_data.employee_count is not None and audio_data.employee_count > 0) else None
+
+    if lic_staff_raw is not None and aud_staff_raw is not None:
+        lic_staff_val = int(lic_staff_raw)
+        aud_staff_val = int(aud_staff_raw)
+        if lic_staff_val != aud_staff_val:
+            total_staff = lic_staff_val
+            staff_status = FieldStatus.CONTRADICTED
+            staff_src = "license"
+            staff_conf = 0.4
+            staff_snip = f"Voice: {aud_staff_val} | License: {lic_staff_val}"
+            gaps.append(
+                Gap(
+                    field_name="employment.total_staff",
+                    reason_missing="Sources disagree — applicant must confirm",
+                    required_from="Applicant",
+                    priority=GapPriority.HIGH,
+                )
+            )
+        else:
+            total_staff = lic_staff_val
+            staff_status = FieldStatus.DOCUMENT_VERIFIED
+            staff_src = "license"
+            staff_conf = 0.95
+            staff_snip = f"Official Trade License OCR: {lic_staff_val}"
+    elif lic_staff_raw is not None:
+        total_staff = int(lic_staff_raw)
+        staff_status = FieldStatus.DOCUMENT_VERIFIED
+        staff_src = "license"
+        staff_conf = 0.95
+        staff_snip = f"Official Trade License OCR: {total_staff}"
+    elif aud_staff_raw is not None:
+        total_staff = int(aud_staff_raw)
         staff_status = FieldStatus.APPLICANT_STATED
         staff_src = "voice"
         staff_conf = 0.90

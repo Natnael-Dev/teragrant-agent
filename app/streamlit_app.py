@@ -546,7 +546,11 @@ if st.session_state["page"] == "home":
         </div>
     </div>
     """
-    st.markdown(home_html, unsafe_allow_html=True)
+    if hasattr(st, "html"):
+        st.html(home_html)
+    else:
+        import textwrap
+        st.markdown(textwrap.dedent(home_html).strip(), unsafe_allow_html=True)
 
 
 # =============================================================================
