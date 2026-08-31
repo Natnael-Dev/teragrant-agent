@@ -337,6 +337,19 @@ THEME_CSS = """
         font-size: 18px;
         margin-bottom: 12px;
     }
+
+    /* 16. Responsive Media Queries for Mobile/Tablet */
+    @media (max-width: 768px) {
+        .block-container {
+            padding: 1rem 0.75rem 4rem 0.75rem !important;
+        }
+        .hero-title {
+            font-size: 1.6rem !important;
+        }
+        .hero-subtitle {
+            font-size: 0.95rem !important;
+        }
+    }
 </style>
 """
 

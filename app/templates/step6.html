@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="topbar-white">
-  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+  <div class="topbar-left">
     <a href="/wizard/5?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('chevron-left', size=14, color='#6B7280') }}
       <span>Back</span>
@@ -11,7 +11,7 @@
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
-  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">Step 6 of 6</div>
+  <div class="topbar-right" style="font-weight: 600; color: #6B7280;">Step 6 of 6</div>
 </div>
 
 <div class="container-wizard">
@@ -31,7 +31,7 @@
   </div>
 
   <!-- Score & Readiness Cards -->
-  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px;">
+  <div class="readiness-grid">
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 14px; padding: 20px; text-align: center;">
       <div style="font-size: 11px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Rubric Score</div>
       <div style="font-size: 32px; font-weight: 800; color: #059669; margin: 6px 0;">{{ score.total_score if score else provisional_score }} <span style="font-size: 16px; color: #6B7280;">/ 100</span></div>

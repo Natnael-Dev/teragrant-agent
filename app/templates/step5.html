@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="topbar-white">
-  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+  <div class="topbar-left">
     <a href="/wizard/4?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('chevron-left', size=14, color='#6B7280') }}
       <span>Back</span>
@@ -11,7 +11,7 @@
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
-  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">Step 5 of 6</div>
+  <div class="topbar-right" style="font-weight: 600; color: #6B7280;">Step 5 of 6</div>
 </div>
 
 <div class="container-wizard">

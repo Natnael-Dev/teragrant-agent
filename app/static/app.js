@@ -28,7 +28,7 @@ function showLoadingOverlay(message) {
       opacity: 0;
     `;
     overlay.innerHTML = `
-      <div style="background: #FFFFFF; border-radius: 16px; padding: 32px 40px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-width: 420px; border: 1px solid #E5E7EB;">
+      <div style="background: #FFFFFF; border-radius: 16px; padding: 24px 20px; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); max-width: calc(100vw - 32px); width: 380px; border: 1px solid #E5E7EB;">
         <div style="display: flex; justify-content: center; margin-bottom: 16px;">
           <svg style="width: 48px; height: 48px; animation: spin 1s linear infinite; color: #059669;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle style="opacity: 0.25;" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="topbar-white">
-  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+  <div class="topbar-left">
     <a href="/reviewer" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('chevron-left', size=14, color='#6B7280') }}
       <span>Reviewer</span>
@@ -11,7 +11,7 @@
     <span style="color: #E5E7EB;">|</span>
     <span>Evidence Library & Multimodal Provenance</span>
   </div>
-  <div>
+  <div class="topbar-right">
     <a href="/" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
       <span>Applicant View</span>
       {{ icon('chevron-right', size=12, color='#059669') }}
@@ -26,7 +26,8 @@
   </div>
 
   <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px;">
-    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <div class="table-responsive">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
       <thead>
         <tr style="border-bottom: 1px solid #E5E7EB; text-align: left; color: #6B7280; font-size: 11px;">
           <th style="padding: 10px 0;">EVIDENCE ASSET</th>
@@ -60,6 +61,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </div>
 {% endblock %}

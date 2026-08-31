@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="topbar-white">
-  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+  <div class="topbar-left">
     <a href="/" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('chevron-left', size=14, color='#6B7280') }}
       <span>Home</span>
@@ -11,7 +11,7 @@
     <span style="color: #E5E7EB;">|</span>
     <span>Reviewer Batch Evaluation & Portfolio Defense</span>
   </div>
-  <div style="display: flex; align-items: center; gap: 14px;">
+  <div class="topbar-right">
     <a href="/evidence" style="font-size: 12px; font-weight: 600; color: #059669; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('doc', size=14, color='#059669') }}
       <span>Evidence Library ›</span>
@@ -19,7 +19,7 @@
   </div>
 </div>
 
-<div class="container-wizard" style="max-width: 1040px; padding-bottom: 120px;">
+<div class="container-reviewer">
   
   <!-- Header & Source Toggle Pills -->
   <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
@@ -51,9 +51,8 @@
   </div>
   {% endif %}
 
-
   <!-- 6 Dynamic KPI Cards -->
-  <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 28px;">
+  <div class="kpis-grid">
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; padding: 14px; text-align: center;">
       <div style="font-size: 10px; color: #6B7280; font-weight: 700; text-transform: uppercase;">Total Batch</div>
       <div style="font-size: 22px; font-weight: 800; color: #111827; margin-top: 4px;">{{ kpis.total_applicants }}</div>
@@ -154,7 +153,7 @@
             <!-- 2. Criteria Score Breakdown Bars -->
             <div>
               <div style="font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase; margin-bottom: 8px;">9-Criteria Rubric Breakdown</div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;">
+              <div class="breakdown-grid-2col" style="gap: 8px 16px;">
                 {% for cs in comp.criteria_scores[:6] %}
                 <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 8px; padding: 8px 12px;">
                   <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 4px;">
@@ -171,7 +170,7 @@
             </div>
 
             <!-- 3. Strongest Evidence (Green) vs Unverified Claims (Amber) -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="breakdown-grid-2col">
               <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 12px;">
                 <div style="font-size: 11px; font-weight: 700; color: #059669; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
                   {{ icon('check', size=13, color='#059669') }} Strongest Evidence (Document Verified)
@@ -243,7 +242,7 @@
     <!-- 3-Track Grid Comparison Card -->
     {% if grid_comparison %}
     <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
         <h3 style="font-size: 16px; font-weight: 700; margin: 0;">Multi-Track Comparison</h3>
         <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Recommended: Women & Youth Led</span>
       </div>
@@ -251,7 +250,7 @@
         {{ grid_comparison.routing_reason }}
       </p>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+      <div class="track-comparison-grid">
         <div style="background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 10px; padding: 14px; text-align: center;">
           <div style="font-size: 11px; font-weight: 600; color: #6B7280; text-transform: uppercase;">General SME</div>
           <div style="font-size: 22px; font-weight: 800; color: #111827; margin: 4px 0;">{{ grid_comparison.variant_scores.GENERAL_SME }} <span style="font-size: 12px; color: #6B7280;">/100</span></div>
@@ -275,7 +274,7 @@
 
     <!-- Violet Potential Improvements Panel (Figma 22) -->
     <div style="background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           {{ icon('sparkles', size=18, color='#7C3AED') }}
           <span style="font-size: 16px; font-weight: 800; color: #4C1D95;">POTENTIAL IMPROVEMENTS & GAP RECOVERY</span>

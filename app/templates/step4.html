@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="topbar-white">
-  <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #111827;">
+  <div class="topbar-left">
     <a href="/wizard/3?lang={{ lang }}" style="color: #6B7280; text-decoration: none; margin-right: 4px; display: inline-flex; align-items: center; gap: 4px;">
       {{ icon('chevron-left', size=14, color='#6B7280') }}
       <span>Back</span>
@@ -11,7 +11,7 @@
     <span style="color: #E5E7EB;">|</span>
     <span>{{ applicant_name }}</span>
   </div>
-  <div style="font-size: 12px; font-weight: 600; color: #6B7280;">Step 4 of 6</div>
+  <div class="topbar-right" style="font-weight: 600; color: #6B7280;">Step 4 of 6</div>
 </div>
 
 <div class="container-wizard">
@@ -27,7 +27,7 @@
 
   <!-- A3: Applicant Provisional Score & Potential Lift Banner -->
   <div style="background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
-    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #F3F4F6; padding-bottom: 14px; margin-bottom: 14px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #F3F4F6; padding-bottom: 14px; margin-bottom: 14px; flex-wrap: wrap; gap: 12px;">
       <div>
         <div style="font-size: 11px; font-weight: 700; color: #6B7280; text-transform: uppercase;">Provisional Application Score</div>
         <div style="font-size: 28px; font-weight: 800; color: #059669; margin-top: 2px;">
@@ -50,7 +50,7 @@
       </div>
       <div style="display: flex; flex-direction: column; gap: 6px;">
         {% for s in sensitivity_items %}
-        <div style="display: flex; align-items: center; justify-content: space-between; background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 8px; padding: 8px 12px; font-size: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #F5F3FF; border: 1px solid #DDD6FE; border-radius: 8px; padding: 8px 12px; font-size: 12px; flex-wrap: wrap; gap: 6px;">
           <span style="color: #4C1D95;"><strong>POTENTIAL +{{ s.pts }} pts:</strong> {{ s.reason }}</span>
           <span style="font-size: 11px; color: #7C3AED; font-weight: 600;">{{ s.field }}</span>
         </div>
