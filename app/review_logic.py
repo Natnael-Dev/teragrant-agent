@@ -119,6 +119,7 @@ def get_reviewer_data(
     raw_items = []
     has_session_pack = bool(
         session_dict and (
+            session_dict.get("processed") or
             session_dict.get("pack_res") or 
             session_dict.get("digital_twin_data") or 
             session_dict.get("transcript")
@@ -131,7 +132,7 @@ def get_reviewer_data(
             score_res = session_dict.get("scoring_res")
             dt = session_dict.get("digital_twin_data", {})
             
-            b_name = session_dict.get("applicant_name") or dt.get("company_name", "Almaz Spice Mill PLC")
+            b_name = session_dict.get("applicant_name") or dt.get("company_name", "New Applicant")
             score_val = score_res.total_score if score_res else 74
             variant_val = score_res.grid_variant.value if (score_res and hasattr(score_res.grid_variant, "value")) else "WOMEN_YOUTH_LED"
             is_elig = score_res.eligibility_gate.is_eligible if (score_res and score_res.eligibility_gate) else True

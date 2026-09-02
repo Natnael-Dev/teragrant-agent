@@ -16,6 +16,20 @@ def client():
     return TestClient(app)
 
 
+def test_fresh_session_has_empty_digital_twin():
+    assert SESSION["digital_twin_data"] == {}
+
+
+def test_step3_renders_missing_on_fresh_session(client):
+    SESSION["processed"] = True
+    SESSION["digital_twin_data"] = {}
+    SESSION["pack_res"] = None
+    response = client.get("/wizard/3")
+    assert response.status_code == 200
+    assert "null (Missing)" in response.text
+    assert "Almaz Spice Mill" not in response.text
+
+
 def test_home_page_renders_english_and_figma_hero(client):
     response = client.get("/")
     assert response.status_code == 200

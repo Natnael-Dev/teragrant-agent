@@ -69,15 +69,7 @@ SESSION: Dict[str, Any] = {
     "interview_data": {},
     "interview_transcripts": [],
     "processed": False,
-    "digital_twin_data": {
-        "company_name": "Almaz Spice Mill PLC",
-        "tin_number": "0047281903",
-        "location": "Bekoji Tera, Arsi Zone",
-        "total_staff": 8,
-        "female_staff": 5,
-        "annual_sales": 480000,
-        "machinery_requested": "Stainless Steel Pulverizer 500kg/h"
-    }
+    "digital_twin_data": {}
 }
 
 from app.i18n import TRANSLATIONS, get_translations
@@ -173,6 +165,17 @@ async def wizard_step(
     ]
     resolved_gaps = SESSION.get("resolved_gaps", [])
 
+    twin_context = {
+        "company_name": None,
+        "tin_number": None,
+        "location": None,
+        "total_staff": None,
+        "female_staff": None,
+        "annual_sales": None,
+        "machinery_requested": None,
+    }
+    twin_context.update(SESSION.get("digital_twin_data", {}))
+
     return templates.TemplateResponse(
         request=request,
         name=template_name,
@@ -183,7 +186,7 @@ async def wizard_step(
             "gated": gated,
             "applicant_name": app_name,
             "session": SESSION,
-            "twin": SESSION.get("digital_twin_data", {}),
+            "twin": twin_context,
             "pack": SESSION.get("pack_res"),
             "provenance": (SESSION.get("pack_res").provenance if SESSION.get("pack_res") else {}) or {},
             "license_data": SESSION.get("license_data"),
