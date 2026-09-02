@@ -580,22 +580,4 @@ teragrant-agent/
 └── README.md                          # Master architectural documentation
 ```
 
----
-
-## 🏆 Hackathon Evaluation Matrix (Challenge 1)
-
-| Requirement | Status | Implementation Details |
-| :--- | :---: | :--- |
-| **Unseen Multimodal Ingestion** | ✅ Complete | Ingests raw phone photos of paper licenses & audio stories in Amharic, Afaan Oromoo, and English. |
-| **Zero-Hallucination Gap Tracking** | ✅ Complete | Outputs `null` for smudged/missing data and files explicit, prioritized `Gap` records. |
-| **Interactive Digital Twin** | ✅ Complete | Live responsive GIZ/sequa application mirror highlighting verified data vs. gaps in real time. |
-| **Deterministic Compliance Gate** | ✅ Complete | Pure-Python verification of 15 declarations + 3 instant-kill disqualification rules. |
-| **100-Point 3-Track Scoring** | ✅ Complete | Adaptive weighting for General SME, Women & Youth-Led (30pt), and Tech Innovation (30pt). |
-| **Forensic Contradiction Auditing** | ✅ Complete | Dual-layer audit checking mathematical headcount sums and semantic cross-document discrepancies. |
-| **Portfolio Batch Ranking & Defense** | ✅ Complete | Ingests multi-applicant cohorts, generates descending rank order, and produces 4-part committee defense briefs. |
-| **Multilingual Spoken Consent** | ✅ Complete | Translates covenants into spoken vernacular scripts with a strict zero-automated-ticking constraint. |
-| **24/7 Production Deployment** | ✅ Complete | Live on Render with an automated GitHub Actions cloud cron pinger preventing idle sleep. |
-
----
-
 *Built for the **AI Builder Hackathon 2026** to democratize grant capital for grassroots enterprises across Africa.*
