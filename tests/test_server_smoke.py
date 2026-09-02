@@ -366,3 +366,21 @@ def test_api_process_detects_real_contradictions(client):
     assert any("gender" in str(c).lower() or "headcount" in str(c).lower() for c in contradictions)
 
 
+def test_health_and_keepalive_endpoints(client):
+    """Verify health and keep-alive endpoints return 200 for both GET and HEAD."""
+    for path in ["/healthz", "/health", "/ping"]:
+        res_get = client.get(path)
+        assert res_get.status_code == 200
+        data = res_get.json()
+        assert data["status"] == "ok"
+        assert data["service"] == "teragrant-agent"
+
+        res_head = client.head(path)
+        assert res_head.status_code == 200
+
+    # Also root HEAD request must succeed for general uptime monitors
+    res_root_head = client.head("/")
+    assert res_root_head.status_code == 200
+
+
+

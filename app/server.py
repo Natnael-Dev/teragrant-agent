@@ -77,6 +77,27 @@ SESSION: Dict[str, Any] = {
 from app.i18n import TRANSLATIONS, get_translations
 
 
+@app.head("/")
+async def head_root():
+    """Support HEAD requests on root for uptime pingers and automated monitors."""
+    return HTMLResponse(status_code=200)
+
+
+@app.api_route("/healthz", methods=["GET", "HEAD"])
+@app.api_route("/health", methods=["GET", "HEAD"])
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def health_check():
+    """Ultra-lightweight keep-alive & health check endpoint for UptimeRobot and cron pingers."""
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "service": "teragrant-agent",
+            "version": "2.0.0"
+        },
+        status_code=200
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home_page(request: Request, lang: str = Query("en")):
     norm_lang = lang if lang in TRANSLATIONS else "en"
@@ -88,7 +109,6 @@ async def home_page(request: Request, lang: str = Query("en")):
     )
 
 
-@app.get("/wizard/interview", response_class=HTMLResponse)
 @app.get("/wizard/interview", response_class=HTMLResponse)
 async def wizard_interview(request: Request, step: int = Query(0), lang: str = Query("en")):
     norm_lang = lang if lang in TRANSLATIONS else "en"

@@ -42,6 +42,10 @@ data/*.jpeg
 data/*.png
 data/*.webp
 
+# Testing & agent artifacts
+.playwright-mcp/
+live_verify_work_desktop.png
+
 # OS generated files
 .DS_Store
 Thumbs.db

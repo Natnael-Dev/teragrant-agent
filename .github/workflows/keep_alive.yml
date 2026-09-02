@@ -1,0 +1,33 @@
+name: TeraGrant Keep-Alive Uptime Pinger
+
+on:
+  schedule:
+    # Trigger every 10 minutes to stay safely below Render's 15-minute inactivity idle timer
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    name: Keep Render Deployment Awake
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping TeraGrant Health Endpoint
+        run: |
+          echo "Sending keep-alive heartbeat to TeraGrant on Render..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 https://teragrant-agent.onrender.com/healthz)
+          echo "Initial response HTTP status: $STATUS"
+          if [ "$STATUS" -eq 200 ]; then
+            echo "SUCCESS: TeraGrant is awake, responsive, and healthy!"
+          else
+            echo "Cold-start or transient delay detected (HTTP $STATUS). Retrying with full timeout..."
+            sleep 8
+            RETRY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://teragrant-agent.onrender.com/healthz)
+            echo "Retry response HTTP status: $RETRY_STATUS"
+            if [ "$RETRY_STATUS" -eq 200 ]; then
+              echo "SUCCESS: TeraGrant woke up and responded with 200 OK!"
+            else
+              echo "FAILED: Received HTTP status $RETRY_STATUS"
+              exit 1
+            fi
+          fi
