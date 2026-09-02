@@ -34,6 +34,7 @@ from agents.eligibility_agent import run_eligibility_gate
 from agents.router_agent import route_to_grid_variant
 from agents.scorer_agent import score_application, score_sensitivity, submission_readiness, compare_grid_variants
 from agents.consent_agent import record_consent, evaluate_verdict
+from agents.contradiction_agent import detect_contradictions
 from app.digital_twin import convert_to_serializable
 from schemas.consent_schema import ConsentVerdict
 from schemas.scoring_schema import GridVariant
@@ -69,7 +70,8 @@ SESSION: Dict[str, Any] = {
     "interview_data": {},
     "interview_transcripts": [],
     "processed": False,
-    "digital_twin_data": {}
+    "digital_twin_data": {},
+    "contradictions": []
 }
 
 from app.i18n import TRANSLATIONS, get_translations
@@ -495,7 +497,14 @@ async def api_process(
         routed_variant = route_to_grid_variant(pack_res.application, pack_res.impact)
         scoring_res = score_application(pack=pack_res, variant=routed_variant)
         sensitivity_res = score_sensitivity(pack_res, scoring_res)
-        readiness_res = submission_readiness(pack_res, scoring_res.eligibility_gate, contradictions=[])
+
+        # Contradiction Detection (Cross-modal, mathematical, & semantic)
+        try:
+            contradictions_res = detect_contradictions(pack=pack_res, workshop_data=work_res)
+        except Exception:
+            contradictions_res = []
+
+        readiness_res = submission_readiness(pack_res, scoring_res.eligibility_gate, contradictions=contradictions_res)
 
         # Extract Digital Twin facts from real pack/license/audio
         b_name = None
@@ -542,6 +551,7 @@ async def api_process(
         SESSION["scoring_res"] = scoring_res
         SESSION["readiness_res"] = readiness_res
         SESSION["sensitivity_res"] = sensitivity_res
+        SESSION["contradictions"] = [c.model_dump() if hasattr(c, "model_dump") else c for c in contradictions_res]
         SESSION["applicant_name"] = b_name or (lic_res.business_name if (lic_res and lic_res.business_name) else "New Applicant")
         SESSION["digital_twin_data"] = {
             "company_name": b_name,

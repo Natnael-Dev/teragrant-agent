@@ -150,15 +150,7 @@ def get_reviewer_data(
                 "is_eligible": is_elig,
                 "grant_etb": etb_grant,
                 "reviewer_summary": f"Verified application dossier for {b_name} with automated truth-layer extraction and cross-evidence corroboration.",
-                "contradictions": [
-                    {
-                        "claim_a": "Staff headcount stated as 8",
-                        "claim_b": "Workshop stations observed: 5",
-                        "severity": "WARNING",
-                        "kind": "DISCREPANCY",
-                        "explanation": "Headcount corroboration requires payroll validation."
-                    }
-                ] if ("resolved_gaps" not in session_dict or "employment.workstation_discrepancy" not in session_dict.get("resolved_gaps", [])) else [],
+                "contradictions": session_dict.get("contradictions", []),
                 "strongest_evidence": [
                     "Trade License registration valid and TIN verified (98% confidence)",
                     "Physical workshop and machinery photographed on-site"
@@ -230,11 +222,11 @@ def get_reviewer_data(
         raw_contras = item.get("contradictions", [])
         contra_objs = [
             Contradiction(
-                claim_a=c.get("claim_a", ""),
-                claim_b=c.get("claim_b", ""),
-                severity=ContradictionSeverity(c.get("severity", "WARNING")),
-                kind=ContradictionKind(c.get("kind", "DISCREPANCY")),
-                explanation=c.get("explanation", "")
+                claim_a=c.get("claim_a", "") if isinstance(c, dict) else getattr(c, "claim_a", ""),
+                claim_b=c.get("claim_b", "") if isinstance(c, dict) else getattr(c, "claim_b", ""),
+                severity=ContradictionSeverity(c.get("severity", "WARNING")) if isinstance(c, dict) else getattr(c, "severity", ContradictionSeverity.WARNING),
+                kind=ContradictionKind(c.get("kind", "DISCREPANCY")) if isinstance(c, dict) else getattr(c, "kind", ContradictionKind.DISCREPANCY),
+                explanation=c.get("explanation", "") if isinstance(c, dict) else getattr(c, "explanation", "")
             )
             for c in raw_contras
         ]

@@ -328,3 +328,41 @@ def test_reviewer_export_source_filenames(client):
     assert res_session.status_code == 200
     assert "filename=shortlist_session.json" in res_session.headers.get("content-disposition", "")
 
+
+def test_api_process_detects_real_contradictions(client):
+    """
+    ISSUE 37.2 PROOF:
+    /api/process invokes detect_contradictions(), feeds real discrepancies into
+    submission_readiness(), and persists them into SESSION['contradictions'].
+    """
+    from unittest.mock import patch
+    from agents.mapper_agent import _build_deterministic_pack
+    from extractors.schemas import LicenseExtraction, AudioTranscriptExtraction
+
+    # Create a real application pack and inject a mathematical headcount/gender contradiction
+    pack = _build_deterministic_pack(
+        license_data=LicenseExtraction(business_name="Test Enterprise", tin_number="1234567890"),
+        audio_data=AudioTranscriptExtraction(
+            transcript="We have 10 workers in our shop.",
+            detected_language="English",
+            business_name="Test Enterprise",
+            employee_count=10,
+        ),
+        workshop_data=None,
+    )
+    # Set total_staff = 10 but female_staff = 20 (impossible)
+    pack.application.employment.total_staff = 10
+    pack.application.employment.gender_split.female = 20
+
+    with patch("app.server.generate_application_pack", return_value=pack), \
+         patch("app.server.run_intake_parallel", return_value=(None, None, None, {}, [])), \
+         patch("agents.contradiction_agent.call_gemini_with_fallback", side_effect=Exception("offline test mode")):
+        response = client.post("/api/process", files={})
+        assert response.status_code == 200
+
+    # Verify contradiction was detected and stored
+    contradictions = SESSION.get("contradictions", [])
+    assert len(contradictions) > 0, "Expected at least one contradiction to be detected"
+    assert any("gender" in str(c).lower() or "headcount" in str(c).lower() for c in contradictions)
+
+
