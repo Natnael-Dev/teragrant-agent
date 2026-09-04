@@ -348,3 +348,59 @@ def test_scoring_empty_pack_graceful_handling():
     assert result.total_score == 0
     for cs in result.criteria_scores:
         assert cs.awarded_points == 0
+
+
+def test_export_endpoint_includes_scoring_audit_trail():
+    """
+    Verifies that GET /api/export returns a JSON payload containing the criteria_scores
+    list with all criterion-level audit trail fields (rule_applied, evidence_value,
+    provenance_state, provenance_cap_applied) fully serialized.
+    """
+    from fastapi.testclient import TestClient
+    from app.server import app as server_app, SESSION
+
+    app_schema = get_sample_application()
+    app_schema.employment.total_staff = 15
+    impact_schema = get_sample_impact()
+    prov = {
+        "employment.total_staff": FieldProvenance(
+            field_path="employment.total_staff",
+            value=15,
+            status=FieldStatus.DOCUMENT_VERIFIED,
+            confidence=0.95,
+            source_type="license",
+            evidence_snippet="Official register verifies 15 employees.",
+        )
+    }
+    pack = ApplicationPack(application=app_schema, impact=impact_schema, gaps=[], provenance=prov)
+
+    # Score application using the deterministic rule engine
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value.text = json.dumps({
+        "reviewer_summary": "Enterprise exhibits robust operational capability and high alignment."
+    })
+    scoring_result = score_application(pack=pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+
+    # Place in SESSION state as server.py would do
+    SESSION["scoring_res"] = scoring_result
+    SESSION["applicant_name"] = "Sheba CleanTech PLC"
+
+    client = TestClient(server_app)
+    response = client.get("/api/export")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert "criteria_scores" in data
+    assert len(data["criteria_scores"]) == 9
+
+    job_score = next(c for c in data["criteria_scores"] if c["criterion"] == "JOB_CREATION")
+    assert job_score["rule_applied"] == "EMPLOYEE_BAND_10_TO_19"
+    assert job_score["evidence_value"] == 15
+    assert job_score["provenance_state"] == "DOCUMENT_VERIFIED"
+    assert job_score["provenance_cap_applied"] == 1.0
+    assert job_score["awarded_points"] == 14
+
+    assert "scoring_result" in data
+    assert data["scoring_result"]["total_score"] == scoring_result.total_score
+

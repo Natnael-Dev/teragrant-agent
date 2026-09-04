@@ -4,6 +4,7 @@ Implements pure-Python scoring rules and provenance caps under the Scoring Decis
 "CODE OWNS THE NUMBERS. AI OWNS THE SENTENCES."
 
 Zero LLM calls. Fully reproducible, auditable, and re-derivable.
+Captures criterion-level audit trails: rule_applied, evidence_value, provenance_state, provenance_cap_applied.
 """
 
 from typing import Dict, Any, List, Optional, Union
@@ -151,61 +152,66 @@ def resolve_provenance_status(
     return FieldStatus.MISSING
 
 
-def _apply_provenance_cap(raw_points: int, status: FieldStatus, max_points: int) -> tuple[int, str]:
+def _apply_provenance_cap(raw_points: int, status: FieldStatus, max_points: int) -> tuple[int, str, float]:
     """
     Applies the provenance cap defined in the Scoring Decision Contract:
-    - DOCUMENT_VERIFIED: 100% of calculated points
-    - APPLICANT_STATED / AI_INFERRED: capped at 65% of calculated points (rounded)
-    - NEEDS_CONFIRMATION: capped at 50% of calculated points (rounded)
-    - MISSING / CONTRADICTED: 0 points
+    - DOCUMENT_VERIFIED: 100% of calculated points (multiplier 1.0)
+    - APPLICANT_STATED / AI_INFERRED: capped at 65% of calculated points (multiplier 0.65)
+    - NEEDS_CONFIRMATION: capped at 50% of calculated points (multiplier 0.50)
+    - MISSING / CONTRADICTED: 0 points (multiplier 0.0)
     """
     if status == FieldStatus.DOCUMENT_VERIFIED:
         awarded = raw_points
         note = "Full points awarded (DOCUMENT_VERIFIED)"
+        mult = 1.0
     elif status in (FieldStatus.APPLICANT_STATED, FieldStatus.AI_INFERRED):
         awarded = int(round(raw_points * 0.65))
         note = f"Capped at 65% for {status.value} ({raw_points} -> {awarded} pts)"
+        mult = 0.65
     elif status == FieldStatus.NEEDS_CONFIRMATION:
         awarded = int(round(raw_points * 0.50))
         note = f"Capped at 50% for {status.value} ({raw_points} -> {awarded} pts)"
+        mult = 0.50
     elif status in (FieldStatus.MISSING, FieldStatus.CONTRADICTED):
         awarded = 0
         note = f"0 points awarded due to {status.value} evidence"
+        mult = 0.0
     else:
         awarded = 0
         note = f"0 points awarded (unrecognized status {status})"
+        mult = 0.0
 
     clamped = max(0, min(awarded, max_points))
-    return clamped, note
+    return clamped, note, mult
 
 
 # =============================================================================
 # DETERMINISTIC STEP FUNCTIONS (CRITERIA BANDS)
+# Return signature: (points, description, rule_applied, evidence_value)
 # =============================================================================
 
-def _eval_job_creation(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_job_creation(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     staff = facts.get("total_staff")
     if staff is None:
         staff = facts.get("employment.total_staff") or facts.get("employee_count")
 
-    if staff is None or staff <= 0:
-        return 0, "No employee headcount established (0 pts)"
+    if staff is None:
+        return 0, "No employee headcount established (0 pts)", "ZERO_POINTS_MISSING", None
+    if staff <= 0:
+        return 0, f"Employee headcount is zero ({staff} workers) (0 pts)", "ZERO_POINTS_MISSING", staff
     if staff >= 20:
-        return max_points, f"Enterprise employs {staff} workers (20+ headcount band: {max_points}/{max_points} pts)"
+        return max_points, f"Enterprise employs {staff} workers (20+ headcount band: {max_points}/{max_points} pts)", "EMPLOYEE_BAND_20_PLUS", staff
     if staff >= 10:
-        # Standard: 14/20
         pts = int(round(max_points * 0.70))
-        return pts, f"Enterprise employs {staff} workers (10-19 headcount band: {pts}/{max_points} pts)"
+        return pts, f"Enterprise employs {staff} workers (10-19 headcount band: {pts}/{max_points} pts)", "EMPLOYEE_BAND_10_TO_19", staff
     if staff >= 5:
-        # Standard: 8/20
         pts = int(round(max_points * 0.40))
-        return pts, f"Enterprise employs {staff} workers (5-9 headcount band: {pts}/{max_points} pts)"
-    # 1-4 workers
+        return pts, f"Enterprise employs {staff} workers (5-9 headcount band: {pts}/{max_points} pts)", "EMPLOYEE_BAND_5_TO_9", staff
     pts = int(round(max_points * 0.10))
-    return pts, f"Enterprise employs {staff} workers (1-4 headcount band: {pts}/{max_points} pts)"
+    return pts, f"Enterprise employs {staff} workers (1-4 headcount band: {pts}/{max_points} pts)", "EMPLOYEE_BAND_1_TO_4", staff
 
 
-def _eval_gender_youth(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_gender_youth(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     fem_pct = facts.get("female_ownership_percentage")
     if fem_pct is None:
         fem_pct = facts.get("business_info.female_ownership_percentage")
@@ -217,58 +223,62 @@ def _eval_gender_youth(facts: dict, max_points: int) -> tuple[int, str]:
     fem_ratio = (fem_staff / total_staff) if total_staff > 0 else 0.0
     youth_ratio = (youth_staff / total_staff) if total_staff > 0 else 0.0
 
-    if fem_pct is None and total_staff <= 0:
-        return 0, "No demographic data provided for gender or youth inclusion (0 pts)"
+    ev_val = fem_pct if fem_pct is not None else (fem_staff if fem_staff > 0 else (youth_staff if youth_staff > 0 else None))
+
+    if (fem_pct is None or fem_pct <= 0) and total_staff <= 0 and fem_staff <= 0 and youth_staff <= 0:
+        return 0, "No demographic data provided for gender or youth inclusion (0 pts)", "ZERO_POINTS_MISSING", None
 
     eff_fem_pct = fem_pct or 0.0
 
     # Tier 4: Majority female ownership (>=50%) and substantial female or youth workforce
     if eff_fem_pct >= 50.0 and (fem_ratio >= 0.4 or youth_ratio >= 0.5):
-        return max_points, f"Exceptional inclusion: {eff_fem_pct:.0f}% female equity with {fem_ratio*100:.0f}% female / {youth_ratio*100:.0f}% youth staff (Top tier: {max_points}/{max_points} pts)"
+        return max_points, f"Exceptional inclusion: {eff_fem_pct:.0f}% female equity with {fem_ratio*100:.0f}% female / {youth_ratio*100:.0f}% youth staff (Top tier: {max_points}/{max_points} pts)", "GENDER_YOUTH_MAJORITY_OWNERSHIP_AND_STAFF", ev_val if ev_val is not None else eff_fem_pct
 
     # Tier 3: High female ownership (>=30%) OR major workforce inclusion (>=50%)
     if eff_fem_pct >= 30.0 or fem_ratio >= 0.5 or youth_ratio >= 0.6:
         pts = int(round(max_points * 0.70))
-        return pts, f"Strong inclusion: {eff_fem_pct:.0f}% female equity or majority female/youth workforce ({pts}/{max_points} pts)"
+        return pts, f"Strong inclusion: {eff_fem_pct:.0f}% female equity or majority female/youth workforce ({pts}/{max_points} pts)", "GENDER_YOUTH_HIGH_EQUITY_OR_STAFF", ev_val if ev_val is not None else eff_fem_pct
 
     # Tier 2: Meaningful female ownership (>=10%) or significant workforce (>=25%)
     if eff_fem_pct >= 10.0 or fem_ratio >= 0.25 or youth_ratio >= 0.3:
         pts = int(round(max_points * 0.40))
-        return pts, f"Moderate inclusion: {eff_fem_pct:.0f}% female equity or {fem_ratio*100:.0f}% female workforce ({pts}/{max_points} pts)"
+        return pts, f"Moderate inclusion: {eff_fem_pct:.0f}% female equity or {fem_ratio*100:.0f}% female workforce ({pts}/{max_points} pts)", "GENDER_YOUTH_MODERATE_INCLUSION", ev_val if ev_val is not None else eff_fem_pct
 
     # Tier 1: Minimum presence
     if eff_fem_pct > 0 or fem_staff > 0 or youth_staff > 0:
         pts = max(1, int(round(max_points * 0.20)))
-        return pts, f"Baseline inclusion: female or youth participation noted ({pts}/{max_points} pts)"
+        return pts, f"Baseline inclusion: female or youth participation noted ({pts}/{max_points} pts)", "GENDER_YOUTH_BASELINE_INCLUSION", ev_val if ev_val is not None else (eff_fem_pct or fem_staff)
 
-    return 0, "Zero female or youth representation reported (0 pts)"
+    return 0, "Zero female or youth representation reported (0 pts)", "GENDER_YOUTH_ZERO_REPRESENTATION", ev_val if ev_val is not None else 0.0
 
 
-def _eval_innovation(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_innovation(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     has_tech = facts.get("has_proprietary_tech") or facts.get("tech_innovation") or False
     machinery = facts.get("machinery_list") or facts.get("visible_machinery") or []
     machinery_count = len(machinery) if isinstance(machinery, list) else int(facts.get("machinery_count") or 0)
     level = str(facts.get("innovation_level") or "").lower()
 
+    ev_val = "proprietary_tech" if has_tech else (machinery if machinery else (machinery_count if machinery_count > 0 else (level if level else None)))
+
     if not has_tech and machinery_count == 0 and not level:
-        return 0, "No innovation, technology, or machinery assets established (0 pts)"
+        return 0, "No innovation, technology, or machinery assets established (0 pts)", "ZERO_POINTS_MISSING", None
 
     if has_tech or level in ("high", "exceptional") or machinery_count >= 5:
-        return max_points, f"High novelty: proprietary technology or advanced machinery fleet ({max_points}/{max_points} pts)"
+        return max_points, f"High novelty: proprietary technology or advanced machinery fleet ({max_points}/{max_points} pts)", "INNOVATION_HIGH_NOVELTY_OR_FLEET", ev_val
 
     if machinery_count >= 2 or level in ("medium", "moderate"):
         pts = int(round(max_points * 0.70))
-        return pts, f"Value-add processing: operational machinery and production processes ({pts}/{max_points} pts)"
+        return pts, f"Value-add processing: operational machinery and production processes ({pts}/{max_points} pts)", "INNOVATION_VALUE_ADD_MACHINERY", ev_val
 
     if machinery_count >= 1 or level in ("low", "basic"):
         pts = int(round(max_points * 0.40))
-        return pts, f"Standard processing: basic machinery assets verified ({pts}/{max_points} pts)"
+        return pts, f"Standard processing: basic machinery assets verified ({pts}/{max_points} pts)", "INNOVATION_STANDARD_MACHINERY", ev_val
 
     pts = max(1, int(round(max_points * 0.20)))
-    return pts, f"Minimal innovation: basic operational tools noted ({pts}/{max_points} pts)"
+    return pts, f"Minimal innovation: basic operational tools noted ({pts}/{max_points} pts)", "INNOVATION_BASELINE_TOOLS", ev_val
 
 
-def _eval_financial_viability(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_financial_viability(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     rev = facts.get("revenue_etb")
     if rev is None:
         rev = facts.get("annual_sales") or facts.get("turnover")
@@ -278,125 +288,136 @@ def _eval_financial_viability(facts: dict, max_points: int) -> tuple[int, str]:
             first = hist[0]
             rev = first.get("revenue_etb") if isinstance(first, dict) else getattr(first, "revenue_etb", None)
 
-    if rev is None or rev <= 0:
-        return 0, "No verified revenue or sales history provided (0 pts)"
+    if rev is None:
+        return 0, "No verified revenue or sales history provided (0 pts)", "ZERO_POINTS_MISSING", None
+    if rev <= 0:
+        return 0, f"Verified revenue is zero ({rev:,.0f} ETB) (0 pts)", "ZERO_POINTS_MISSING", rev
 
-    # Ethiopian SME Revenue Bands (ETB)
     if rev >= 1_000_000.0:
-        return max_points, f"High turnover: {rev:,.0f} ETB annual revenue (>= 1M band: {max_points}/{max_points} pts)"
+        return max_points, f"High turnover: {rev:,.0f} ETB annual revenue (>= 1M band: {max_points}/{max_points} pts)", "FINANCIAL_VIABILITY_1M_PLUS", rev
     if rev >= 500_000.0:
         pts = int(round(max_points * 0.70))
-        return pts, f"Stable turnover: {rev:,.0f} ETB annual revenue (500k-1M band: {pts}/{max_points} pts)"
+        return pts, f"Stable turnover: {rev:,.0f} ETB annual revenue (500k-1M band: {pts}/{max_points} pts)", "FINANCIAL_VIABILITY_500K_TO_1M", rev
     if rev >= 100_000.0:
         pts = int(round(max_points * 0.40))
-        return pts, f"Emerging turnover: {rev:,.0f} ETB annual revenue (100k-500k band: {pts}/{max_points} pts)"
+        return pts, f"Emerging turnover: {rev:,.0f} ETB annual revenue (100k-500k band: {pts}/{max_points} pts)", "FINANCIAL_VIABILITY_100K_TO_500K", rev
 
     pts = max(1, int(round(max_points * 0.20)))
-    return pts, f"Micro turnover: {rev:,.0f} ETB annual revenue (< 100k band: {pts}/{max_points} pts)"
+    return pts, f"Micro turnover: {rev:,.0f} ETB annual revenue (< 100k band: {pts}/{max_points} pts)", "FINANCIAL_VIABILITY_UNDER_100K", rev
 
 
-def _eval_local_supply_chain(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_local_supply_chain(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     pct = facts.get("local_sourcing_pct")
     suppliers = facts.get("supplier_count") or facts.get("domestic_suppliers") or 0
 
+    ev_val = pct if pct is not None else (suppliers if suppliers > 0 else (facts.get("local_supply_chain") or None))
+
     if (pct is None or pct <= 0) and suppliers <= 0 and not facts.get("local_supply_chain"):
-        return 0, "No domestic supply chain or local sourcing established (0 pts)"
+        return 0, "No domestic supply chain or local sourcing established (0 pts)", "ZERO_POINTS_MISSING", None
 
     eff_pct = pct or 0.0
     if eff_pct >= 80.0 or suppliers >= 5:
-        return max_points, f"High domestic integration: {eff_pct:.0f}% localized raw materials or {suppliers} suppliers ({max_points}/{max_points} pts)"
+        return max_points, f"High domestic integration: {eff_pct:.0f}% localized raw materials or {suppliers} suppliers ({max_points}/{max_points} pts)", "LOCAL_SUPPLY_CHAIN_HIGH_INTEGRATION", ev_val
     if eff_pct >= 50.0 or suppliers >= 2:
         pts = int(round(max_points * 0.70))
-        return pts, f"Substantial domestic sourcing: {eff_pct:.0f}% localized sourcing ({pts}/{max_points} pts)"
+        return pts, f"Substantial domestic sourcing: {eff_pct:.0f}% localized sourcing ({pts}/{max_points} pts)", "LOCAL_SUPPLY_CHAIN_SUBSTANTIAL_SOURCING", ev_val
     if eff_pct >= 20.0 or suppliers >= 1:
         pts = int(round(max_points * 0.40))
-        return pts, f"Moderate domestic sourcing: {eff_pct:.0f}% localized inputs ({pts}/{max_points} pts)"
+        return pts, f"Moderate domestic sourcing: {eff_pct:.0f}% localized inputs ({pts}/{max_points} pts)", "LOCAL_SUPPLY_CHAIN_MODERATE_SOURCING", ev_val
 
     if eff_pct > 0 or suppliers > 0:
         pts = max(1, int(round(max_points * 0.20)))
-        return pts, f"Initial supply integration noted ({pts}/{max_points} pts)"
+        return pts, f"Initial supply integration noted ({pts}/{max_points} pts)", "LOCAL_SUPPLY_CHAIN_INITIAL_INTEGRATION", ev_val
 
-    return 0, "No domestic supply chain or local sourcing established (0 pts)"
+    return 0, "No domestic supply chain or local sourcing established (0 pts)", "ZERO_POINTS_MISSING", None
 
 
-def _eval_sdg_environmental(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_sdg_environmental(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     sdgs = facts.get("sdgs") or []
     count = len(sdgs) if isinstance(sdgs, list) else int(facts.get("sdg_count") or 0)
     has_eco = facts.get("has_environmental_practice") or False
 
+    ev_val = sdgs if sdgs else (count if count > 0 else (has_eco if has_eco else None))
+
     if count <= 0 and not has_eco:
-        return 0, "No UN SDG alignment or environmental practices established (0 pts)"
+        return 0, "No UN SDG alignment or environmental practices established (0 pts)", "ZERO_POINTS_MISSING", None
 
     if count >= 3 or (count >= 2 and has_eco):
-        return max_points, f"Strong SDG alignment: {count} verified UN SDGs and clean production practices ({max_points}/{max_points} pts)"
+        return max_points, f"Strong SDG alignment: {count} verified UN SDGs and clean production practices ({max_points}/{max_points} pts)", "SDG_STRONG_ALIGNMENT", ev_val
     if count >= 2 or has_eco:
         pts = int(round(max_points * 0.70))
-        return pts, f"Moderate impact: {count} verified UN SDGs ({pts}/{max_points} pts)"
+        return pts, f"Moderate impact: {count} verified UN SDGs ({pts}/{max_points} pts)", "SDG_MODERATE_IMPACT", ev_val
     if count >= 1:
         pts = int(round(max_points * 0.40))
-        return pts, f"Single SDG identified ({pts}/{max_points} pts)"
+        return pts, f"Single SDG identified ({pts}/{max_points} pts)", "SDG_SINGLE_GOAL", ev_val
 
     pts = max(1, int(round(max_points * 0.20)))
-    return pts, f"Baseline environmental awareness noted ({pts}/{max_points} pts)"
+    return pts, f"Baseline environmental awareness noted ({pts}/{max_points} pts)", "SDG_BASELINE_AWARENESS", ev_val
 
 
-def _eval_management_organogram(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_management_organogram(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     organogram = facts.get("organogram") or []
     org_count = len(organogram) if isinstance(organogram, list) else int(facts.get("organogram_count") or 0)
     years = facts.get("years_in_operation") or facts.get("business_info.years_in_operation") or 0
 
+    ev_val = {"roles": org_count, "years": years} if (org_count > 0 or years > 0) else None
+
     if org_count <= 0 and years <= 0:
-        return 0, "No management structure or operating history established (0 pts)"
+        return 0, "No management structure or operating history established (0 pts)", "ZERO_POINTS_MISSING", None
 
     if org_count >= 3 and years >= 3:
-        return max_points, f"Established management: {org_count} structured roles and {years} operating years ({max_points}/{max_points} pts)"
+        return max_points, f"Established management: {org_count} structured roles and {years} operating years ({max_points}/{max_points} pts)", "MANAGEMENT_STRUCTURED_EXPERIENCED", ev_val
     if org_count >= 2 or years >= 2:
         pts = int(round(max_points * 0.60))
-        return pts, f"Documented team: {org_count} roles with {years} operating years ({pts}/{max_points} pts)"
+        return pts, f"Documented team: {org_count} roles with {years} operating years ({pts}/{max_points} pts)", "MANAGEMENT_DOCUMENTED_TEAM", ev_val
     if org_count >= 1 or years >= 1:
         pts = int(round(max_points * 0.40))
-        return pts, f"Emerging team structure ({pts}/{max_points} pts)"
+        return pts, f"Emerging team structure ({pts}/{max_points} pts)", "MANAGEMENT_EMERGING_STRUCTURE", ev_val
 
     pts = max(1, int(round(max_points * 0.20)))
-    return pts, f"Sole proprietor or early setup ({pts}/{max_points} pts)"
+    return pts, f"Sole proprietor or early setup ({pts}/{max_points} pts)", "MANAGEMENT_EARLY_SETUP", ev_val
 
 
-def _eval_community_impact(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_community_impact(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     beneficiaries = facts.get("target_beneficiaries")
     if beneficiaries is None:
         beneficiaries = facts.get("impact.target_beneficiaries")
 
-    if beneficiaries is None or beneficiaries <= 0:
-        return 0, "No community beneficiaries established (0 pts)"
+    if beneficiaries is None:
+        return 0, "No community beneficiaries established (0 pts)", "ZERO_POINTS_MISSING", None
+    if beneficiaries <= 0:
+        return 0, f"Community beneficiaries is zero ({beneficiaries}) (0 pts)", "ZERO_POINTS_MISSING", beneficiaries
 
     if beneficiaries >= 1000:
-        return max_points, f"High community impact: {beneficiaries:,} target beneficiaries ({max_points}/{max_points} pts)"
+        return max_points, f"High community impact: {beneficiaries:,} target beneficiaries ({max_points}/{max_points} pts)", "COMMUNITY_IMPACT_HIGH_1000_PLUS", beneficiaries
     if beneficiaries >= 250:
         pts = int(round(max_points * 0.60))
-        return pts, f"Substantial impact: {beneficiaries:,} community beneficiaries ({pts}/{max_points} pts)"
+        return pts, f"Substantial impact: {beneficiaries:,} community beneficiaries ({pts}/{max_points} pts)", "COMMUNITY_IMPACT_SUBSTANTIAL_250_TO_999", beneficiaries
     if beneficiaries >= 50:
         pts = int(round(max_points * 0.40))
-        return pts, f"Moderate impact: {beneficiaries:,} community beneficiaries ({pts}/{max_points} pts)"
+        return pts, f"Moderate impact: {beneficiaries:,} community beneficiaries ({pts}/{max_points} pts)", "COMMUNITY_IMPACT_MODERATE_50_TO_249", beneficiaries
 
     pts = max(1, int(round(max_points * 0.20)))
-    return pts, f"Localized impact: {beneficiaries} beneficiaries ({pts}/{max_points} pts)"
+    return pts, f"Localized impact: {beneficiaries} beneficiaries ({pts}/{max_points} pts)", "COMMUNITY_IMPACT_LOCAL_UNDER_50", beneficiaries
 
 
-def _eval_scalability(facts: dict, max_points: int) -> tuple[int, str]:
+def _eval_scalability(facts: dict, max_points: int) -> tuple[int, str, str, Optional[Any]]:
     growth = str(facts.get("growth_capacity") or facts.get("expansion_plan") or "").lower()
     has_plan = facts.get("has_expansion_plan") or False
 
+    ev_val = growth if growth else ("has_expansion_plan" if has_plan else None)
+
     if not growth and not has_plan and not facts.get("scalability"):
-        return 0, "No business scalability or expansion plan established (0 pts)"
+        return 0, "No business scalability or expansion plan established (0 pts)", "ZERO_POINTS_MISSING", None
 
     if "regional" in growth or "national" in growth or "multi-woreda" in growth:
-        return max_points, f"High scalability: regional or inter-woreda market expansion plan ({max_points}/{max_points} pts)"
+        return max_points, f"High scalability: regional or inter-woreda market expansion plan ({max_points}/{max_points} pts)", "SCALABILITY_REGIONAL_NATIONAL", ev_val
     if "viable" in growth or "scale" in growth or has_plan:
         pts = int(round(max_points * 0.60))
-        return pts, f"Established scalability: production expansion capacity documented ({pts}/{max_points} pts)"
+        return pts, f"Established scalability: production expansion capacity documented ({pts}/{max_points} pts)", "SCALABILITY_VIABLE_EXPANSION", ev_val
 
     pts = max(1, int(round(max_points * 0.40)))
-    return pts, f"Baseline local scalability potential ({pts}/{max_points} pts)"
+    return pts, f"Baseline local scalability potential ({pts}/{max_points} pts)", "SCALABILITY_LOCAL_CAPACITY", ev_val
 
 
 # Dispatcher mapping criteria to step functions
@@ -425,7 +446,8 @@ def evaluate_criterion(
 ) -> CriterionScore:
     """
     Deterministically evaluates a single criterion under a specific GridVariant track.
-    Applies pure-Python step-functions and enforces Scoring Decision Contract provenance caps.
+    Applies pure-Python step-functions, enforces Scoring Decision Contract provenance caps,
+    and captures a complete, explicit audit trail (rule_applied, evidence_value, provenance_state, provenance_cap_applied).
 
     Zero LLM calls. Fully re-derivable.
     """
@@ -441,18 +463,34 @@ def evaluate_criterion(
             max_points=max_points,
             awarded_points=0,
             reasoning=f"No evaluator registered for criterion {criterion_name.value}.",
+            rule_applied="ZERO_POINTS_MISSING",
+            evidence_value=None,
+            provenance_state="MISSING",
+            provenance_cap_applied=0.0,
         )
 
-    # 1. Calculate raw band points from facts
-    raw_points, band_desc = evaluator(safe_facts, max_points)
+    # 1. Calculate raw band points and rule metadata from facts
+    raw_points, band_desc, rule_applied, evidence_val = evaluator(safe_facts, max_points)
 
     # 2. Resolve provenance status
     status = resolve_provenance_status(criterion_name, safe_prov)
 
     # 3. Apply provenance caps
-    final_points, cap_note = _apply_provenance_cap(raw_points, status, max_points)
+    final_points, cap_note, cap_multiplier = _apply_provenance_cap(raw_points, status, max_points)
 
-    # 4. Formulate deterministic audit reasoning
+    # 4. Handle Edge Cases: Missing fact or uncorroborated provenance
+    if evidence_val is None:
+        rule_applied = "ZERO_POINTS_MISSING"
+        provenance_state_str = "MISSING"
+        cap_multiplier = 0.0
+        final_points = 0
+    else:
+        provenance_state_str = status.value
+        if status in (FieldStatus.MISSING, FieldStatus.CONTRADICTED):
+            cap_multiplier = 0.0
+            final_points = 0
+
+    # 5. Formulate deterministic audit reasoning
     reasoning = f"{band_desc} Provenance status: {status.value}. {cap_note}."
 
     return CriterionScore(
@@ -460,6 +498,10 @@ def evaluate_criterion(
         max_points=max_points,
         awarded_points=final_points,
         reasoning=reasoning,
+        rule_applied=rule_applied,
+        evidence_value=evidence_val,
+        provenance_state=provenance_state_str,
+        provenance_cap_applied=cap_multiplier,
     )
 
 
@@ -475,7 +517,7 @@ def evaluate_all_criteria(
 ) -> List[CriterionScore]:
     """
     Evaluates all 9 standardized criteria in order under the specified GridVariant track.
-    Returns exactly 9 CriterionScore objects whose max_points sum to 100.
+    Returns exactly 9 CriterionScore objects whose max_points sum to 100 with full audit trails.
     """
     scores = []
     for criterion in CriterionName:

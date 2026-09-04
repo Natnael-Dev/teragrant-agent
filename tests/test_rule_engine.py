@@ -497,3 +497,90 @@ class TestZeroLLMCalls:
         ]
         for term in forbidden:
             assert term not in source, f"Rule engine violates contract: found forbidden LLM term '{term}'"
+
+
+# =============================================================================
+# 8. SCORE AUDIT TRAIL TESTS (BATCH F)
+# =============================================================================
+
+class TestScoreAuditTrail:
+    """Verifies that rule_applied, evidence_value, provenance_state, and provenance_cap_applied are accurately captured."""
+
+    def test_audit_trail_known_input_job_creation(self):
+        prov = {"employment.total_staff": FieldStatus.DOCUMENT_VERIFIED}
+        score = evaluate_criterion(
+            CriterionName.JOB_CREATION,
+            GridVariant.GENERAL_SME,
+            {"total_staff": 15},
+            prov,
+        )
+        assert score.rule_applied == "EMPLOYEE_BAND_10_TO_19"
+        assert score.evidence_value == 15
+        assert score.provenance_state == "DOCUMENT_VERIFIED"
+        assert score.provenance_cap_applied == 1.0
+        assert score.awarded_points == 14
+
+    def test_audit_trail_applicant_stated_cap(self):
+        prov = {"total_staff": FieldStatus.APPLICANT_STATED}
+        score = evaluate_criterion(
+            CriterionName.JOB_CREATION,
+            GridVariant.GENERAL_SME,
+            {"total_staff": 25},
+            prov,
+        )
+        assert score.rule_applied == "EMPLOYEE_BAND_20_PLUS"
+        assert score.evidence_value == 25
+        assert score.provenance_state == "APPLICANT_STATED"
+        assert score.provenance_cap_applied == 0.65
+        assert score.awarded_points == 13
+
+    def test_audit_trail_missing_fact_edge_case(self):
+        """If fact is MISSING (None), evidence_value is None, provenance_state is MISSING, rule is ZERO_POINTS_MISSING, cap is 0.0."""
+        prov = {"employment.total_staff": FieldStatus.DOCUMENT_VERIFIED}
+        score = evaluate_criterion(
+            CriterionName.JOB_CREATION,
+            GridVariant.GENERAL_SME,
+            {"total_staff": None},
+            prov,
+        )
+        assert score.evidence_value is None
+        assert score.provenance_state == "MISSING"
+        assert score.rule_applied == "ZERO_POINTS_MISSING"
+        assert score.provenance_cap_applied == 0.0
+        assert score.awarded_points == 0
+
+    def test_audit_trail_financial_viability_known_input(self):
+        prov = {"financials.sales_history": FieldStatus.DOCUMENT_VERIFIED}
+        score = evaluate_criterion(
+            CriterionName.FINANCIAL_VIABILITY,
+            GridVariant.GENERAL_SME,
+            {"revenue_etb": 750000.0},
+            prov,
+        )
+        assert score.rule_applied == "FINANCIAL_VIABILITY_500K_TO_1M"
+        assert score.evidence_value == 750000.0
+        assert score.provenance_state == "DOCUMENT_VERIFIED"
+        assert score.provenance_cap_applied == 1.0
+        assert score.awarded_points == 10
+
+    def test_all_criteria_produce_audit_trail(self):
+        sample_facts = {
+            "total_staff": 15,
+            "female_ownership_percentage": 50.0,
+            "has_proprietary_tech": True,
+            "revenue_etb": 1_200_000,
+            "local_sourcing_pct": 80.0,
+            "sdgs": ["SDG 7", "SDG 13"],
+            "organogram": ["CEO", "CTO", "COO"],
+            "years_in_operation": 3,
+            "target_beneficiaries": 1000,
+            "growth_capacity": "Regional expansion",
+        }
+        prov = {c.value: FieldStatus.DOCUMENT_VERIFIED for c in CriterionName}
+        scores = evaluate_all_criteria(GridVariant.GENERAL_SME, sample_facts, prov)
+
+        for s in scores:
+            assert s.rule_applied is not None
+            assert s.evidence_value is not None
+            assert s.provenance_state == "DOCUMENT_VERIFIED"
+            assert s.provenance_cap_applied == 1.0

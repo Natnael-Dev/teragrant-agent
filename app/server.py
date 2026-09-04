@@ -783,13 +783,37 @@ async def api_reviewer_export(source: str = Query("demo")):
 # API: APPLICANT DOSSIER EXPORT
 @app.get("/api/export")
 async def api_export():
+    scoring_res = SESSION.get("scoring_res")
+    readiness_res = SESSION.get("readiness_res")
+
+    score_val = 74
+    criteria_scores_data = []
+    if scoring_res:
+        score_val = scoring_res.total_score if hasattr(scoring_res, "total_score") else getattr(scoring_res, "score", 74)
+        if hasattr(scoring_res, "criteria_scores"):
+            criteria_scores_data = [
+                cs.model_dump() if hasattr(cs, "model_dump") else cs
+                for cs in scoring_res.criteria_scores
+            ]
+    elif "criteria_scores" in SESSION:
+        criteria_scores_data = SESSION["criteria_scores"]
+
+    readiness_val = 88
+    if readiness_res:
+        if isinstance(readiness_res, dict):
+            readiness_val = readiness_res.get("readiness_pct", 88)
+        elif hasattr(readiness_res, "readiness_pct"):
+            readiness_val = readiness_res.readiness_pct
+
     export_payload = {
         "applicant": SESSION.get("applicant_name", "New Applicant"),
         "digital_twin": SESSION.get("digital_twin_data", {}),
         "transcript": SESSION.get("transcript", ""),
         "evidence_provenance": "Document Verified",
-        "score": 74,
-        "readiness_pct": 88
+        "score": score_val,
+        "readiness_pct": readiness_val,
+        "scoring_result": convert_to_serializable(scoring_res) if scoring_res else None,
+        "criteria_scores": convert_to_serializable(criteria_scores_data),
     }
     return JSONResponse(
         content=convert_to_serializable(export_payload),

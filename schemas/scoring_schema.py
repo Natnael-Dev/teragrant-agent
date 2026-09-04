@@ -10,7 +10,7 @@ official donor rubrics.
 """
 
 from enum import Enum
-from typing import List
+from typing import List, Optional, Any
 from pydantic import BaseModel, Field, model_validator, field_validator, ConfigDict
 
 # Scoring Framework Metadata Constants
@@ -83,6 +83,22 @@ class CriterionScore(BaseModel):
         ...,
         min_length=10,
         description="Justification sentence(s) citing specific data or penalizing missing Gaps."
+    )
+    rule_applied: Optional[str] = Field(
+        default=None,
+        description="Deterministic rule identifier applied (e.g. 'EMPLOYEE_BAND_10_TO_19')"
+    )
+    evidence_value: Optional[Any] = Field(
+        default=None,
+        description="Raw factual value used for rule evaluation (e.g. 15, 600000, or None)"
+    )
+    provenance_state: Optional[str] = Field(
+        default=None,
+        description="Epistemic provenance state of the evidence (e.g. 'DOCUMENT_VERIFIED', 'APPLICANT_STATED')"
+    )
+    provenance_cap_applied: Optional[float] = Field(
+        default=None,
+        description="Multiplier cap applied based on epistemic provenance (e.g. 1.0, 0.65, 0.50, 0.0)"
     )
 
     @model_validator(mode="after")
