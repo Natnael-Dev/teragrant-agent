@@ -438,7 +438,7 @@ All declarations default to `False`. The applicant must explicitly affirm compli
 - **Sanctions / Fraud / Criminal Convictions**
 - **Prohibited Sector Activities** (illicit substances, weapons, uncertified logging)
 
-### 100-Point Scoring Matrix with 3 Grid Tracks
+### 100-Point Scoring Matrix with 3 Grid Tracks (ALPHAX Prototype)
 The scoring engine dynamically reweights criteria based on enterprise profile:
 
 | Criteria | Standard SME Weight | Women & Youth-Led Weight | Tech & Innovation Weight |
@@ -453,6 +453,14 @@ The scoring engine dynamically reweights criteria based on enterprise profile:
 | **Community Benefit & Spillover** | 5 pts | 5 pts | 5 pts |
 | **Scalability & Replicability** | 5 pts | 0 pts | 5 pts |
 | **Total Available Score** | **100 pts** | **100 pts** | **100 pts** |
+
+### 🔍 Scoring Methodology & Transparency Notice
+
+> [!IMPORTANT]
+> **ALPHAX Internal Prototype Scoring Grid (`v1.0-prototype`)**:
+> - **Prototype Heuristic**: The 9-criterion, 100-point scoring matrix and 3-track weight distribution (`GENERAL_SME`, `WOMEN_YOUTH_LED`, `INNOVATION_TECH`) represent an internal ALPHAX engineering heuristic created for the hackathon prototype.
+> - **Not the Official Sponsor Matrix**: This scoring grid is **NOT** the official SEQUA / GIZ evaluation rubric. Official donor scoring weights, rubric bands, and point allocations were not established in the available challenge documentation.
+> - **Pluggable Donor Rubrics**: The system architecture strictly decouples evidence extraction and provenance tracking from evaluation grids. Future iterations support hot-swapping this prototype grid with verified official SEQUA/GIZ evaluation rubrics or donor-specific scorecards without altering the core pipeline.
 
 ---
 

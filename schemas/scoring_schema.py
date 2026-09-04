@@ -1,11 +1,21 @@
 """
 Scoring and Evaluation Schemas for TeraGrant Reviewer Path.
-Defines Pydantic models for the 100-Point Scoring Grid, Eligibility Gate, and Grid Routing variants.
+Defines Pydantic models for the ALPHAX Internal Prototype Scoring Grid (v1.0-prototype),
+Eligibility Gate, and Grid Routing variants.
+
+NOTE: The current 9-criterion, 100-point scoring matrix is the ALPHAX Internal Prototype
+Grid (v1.0-prototype), an engineering heuristic developed for the hackathon prototype.
+It is NOT the official SEQUA/GIZ evaluation matrix. Future versions will support pluggable
+official donor rubrics.
 """
 
 from enum import Enum
 from typing import List
 from pydantic import BaseModel, Field, model_validator, field_validator, ConfigDict
+
+# Scoring Framework Metadata Constants
+GRID_NAME: str = "ALPHAX Internal Prototype Scoring Grid"
+GRID_VERSION: str = "v1.0-prototype"
 
 
 class ExclusionFactor(str, Enum):

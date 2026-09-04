@@ -1,7 +1,12 @@
 """
 100-Point Evaluation Scorer Agent (Reviewer Path).
-Evaluates an ApplicationPack across 9 weighted criteria under a specific GridVariant track.
+Evaluates an ApplicationPack across 9 weighted criteria under the ALPHAX Internal Prototype
+Scoring Grid (v1.0-prototype) track.
 Enforces deterministic gap penalties when incomplete information is present.
+
+NOTE: The current 9-criterion, 100-point scoring matrix is the ALPHAX Internal Prototype
+Grid (v1.0-prototype), an engineering heuristic developed for the hackathon prototype.
+It is NOT the official SEQUA/GIZ evaluation matrix.
 """
 
 import json
@@ -13,6 +18,8 @@ from google.genai import types
 from extractors.config import get_gemini_client, call_gemini_with_fallback
 from schemas.gap_schema import ApplicationPack
 from schemas.scoring_schema import (
+    GRID_NAME,
+    GRID_VERSION,
     GridVariant,
     CriterionName,
     CriterionScore,
@@ -24,7 +31,7 @@ from .eligibility_agent import run_eligibility_gate
 
 SCORER_SYSTEM_PROMPT = """You are the Lead Investment Committee Evaluator and Senior Technical Reviewer for the TeraGrant SME Grant Program.
 
-Your task is to evaluate a fully structured ApplicationPack against the 9 standard scoring criteria under the designated GridVariant track.
+Your task is to evaluate a fully structured ApplicationPack against the 9 standard scoring criteria under the designated GridVariant track using the ALPHAX Internal Prototype Grid (v1.0-prototype). (Note: This is a development prototype rubric, not an official sponsor grid).
 
 TRACK MAXIMUM POINT ALLOCATIONS (MUST EQUAL 100 POINTS EXACTLY):
 =============================================================================
@@ -61,7 +68,7 @@ def score_application(
     client: Optional[Any] = None,
 ) -> ScoringResult:
     """
-    Evaluates and scores an ApplicationPack across 9 weighted criteria under a specific GridVariant.
+    Evaluates and scores an ApplicationPack across 9 weighted criteria under the ALPHAX Internal Prototype Grid (v1.0-prototype).
     """
     eligibility_result = run_eligibility_gate(pack.application)
 
@@ -76,7 +83,7 @@ def score_application(
     }
 
     schema_prompt = f"\nRETURN ONLY VALID JSON MATCHING THIS EXACT SCHEMA:\n{json.dumps(ScoringResult.model_json_schema(), default=str)}"
-    user_prompt = f"""Evaluate this SME application according to the {variant.value} track and 100-point rubric:
+    user_prompt = f"""Evaluate this SME application according to the {variant.value} track of the ALPHAX Internal Prototype Grid (v1.0-prototype) and 100-point rubric:
 
 APPLICATION DOSSIER:
 {json.dumps(scoring_payload, indent=2, ensure_ascii=False)}
