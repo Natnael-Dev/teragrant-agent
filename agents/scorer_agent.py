@@ -2,7 +2,12 @@
 100-Point Evaluation Scorer Agent (Reviewer Path).
 Evaluates an ApplicationPack across 9 weighted criteria under the ALPHAX Internal Prototype
 Scoring Grid (v1.0-prototype) track.
-Enforces deterministic gap penalties when incomplete information is present.
+
+Under the Scoring Decision Contract:
+"CODE OWNS THE NUMBERS. AI OWNS THE SENTENCES."
+- All numerical scoring is performed deterministically by `agents/rule_engine.py`.
+- Gemini LLM is restricted exclusively to generating qualitative reviewer narratives.
+- Zero numerical discretion or point assignment is delegated to the AI model.
 
 NOTE: The current 9-criterion, 100-point scoring matrix is the ALPHAX Internal Prototype
 Grid (v1.0-prototype), an engineering heuristic developed for the hackathon prototype.
@@ -10,13 +15,13 @@ It is NOT the official SEQUA/GIZ evaluation matrix.
 """
 
 import json
-from typing import Optional, Any
-from pydantic import ValidationError
+from typing import Optional, Any, Dict, List
 
 from google.genai import types
 
 from extractors.config import get_gemini_client, call_gemini_with_fallback
 from schemas.gap_schema import ApplicationPack
+from schemas.provenance_schema import FieldStatus, FieldProvenance
 from schemas.scoring_schema import (
     GRID_NAME,
     GRID_VERSION,
@@ -26,38 +31,134 @@ from schemas.scoring_schema import (
     ScoringResult,
     EligibilityGate,
 )
-from .eligibility_agent import run_eligibility_gate
+from agents.rule_engine import (
+    evaluate_criterion,
+    calculate_total_score,
+)
+from agents.eligibility_agent import run_eligibility_gate
 
 
-SCORER_SYSTEM_PROMPT = """You are the Lead Investment Committee Evaluator and Senior Technical Reviewer for the TeraGrant SME Grant Program.
+REVIEWER_SUMMARY_SYSTEM_PROMPT = """You are the Lead Investment Committee Evaluator and Senior Technical Reviewer for the TeraGrant SME Grant Program.
 
-Your task is to evaluate a fully structured ApplicationPack against the 9 standard scoring criteria under the designated GridVariant track using the ALPHAX Internal Prototype Grid (v1.0-prototype). (Note: This is a development prototype rubric, not an official sponsor grid).
+The numerical evaluation has been completed by the deterministic rule engine.
+Your task is to write ONLY the executive reviewer summary (a 2-3 sentence explanation of the score, enterprise strengths, risks, and site-visit recommendation).
 
-TRACK MAXIMUM POINT ALLOCATIONS (MUST EQUAL 100 POINTS EXACTLY):
-=============================================================================
-CRITERION                     | GENERAL_SME | WOMEN_YOUTH_LED | INNOVATION_TECH
-------------------------------+-------------+-----------------+----------------
-1. Job Creation               |   20 pts    |     20 pts      |     20 pts
-2. Gender & Youth Inclusion   |   15 pts    |     30 pts      |      5 pts
-3. Innovation & Unique Feature|   15 pts    |      5 pts      |     30 pts
-4. Financial Viability        |   15 pts    |     10 pts      |     10 pts
-5. Local Supply Chain         |   10 pts    |     10 pts      |     10 pts
-6. SDG & Environmental Impact |   10 pts    |     10 pts      |     10 pts
-7. Management & Organogram    |    5 pts    |      5 pts      |      5 pts
-8. Community Impact           |    5 pts    |      5 pts      |      5 pts
-9. Scalability                |    5 pts    |      5 pts      |      5 pts
-------------------------------+-------------+-----------------+----------------
-TOTAL MAXIMUM                 |  100 pts    |    100 pts      |    100 pts
-=============================================================================
+You MUST NOT generate or modify any numerical points or criteria scores. Code owns the numbers; AI owns the sentences.
 
-MANDATORY GAP PENALTY RULES:
-1. For every criterion, review the `gaps` list in the ApplicationPack.
-2. If data relevant to a criterion is missing (e.g. missing sales history -> Financial Viability; missing gender split -> Gender Inclusion; missing TIN -> Compliance/Financials):
-   - You MUST penalize the score awarded for that criterion.
-   - In the `reasoning` field for that criterion, you MUST explicitly state:
-     "Score penalized due to missing data: [field_name]."
+Respond strictly in JSON matching this schema:
+{
+  "reviewer_summary": "2-3 sentence executive summary explaining the enterprise evaluation, strengths, risks, and site-visit recommendation."
+}"""
 
-Respond strictly in JSON matching the ScoringResult schema."""
+CRITERION_GAP_KEYWORDS: Dict[CriterionName, List[str]] = {
+    CriterionName.JOB_CREATION: ["staff", "employee", "employment", "headcount", "worker"],
+    CriterionName.GENDER_YOUTH_INCLUSION: ["gender", "female", "women", "youth", "demographic"],
+    CriterionName.INNOVATION_UNIQUE_FEATURE: ["innovation", "machinery", "equipment", "tech", "patent", "milestone"],
+    CriterionName.FINANCIAL_VIABILITY: ["financial", "sales", "revenue", "turnover", "tin", "audit", "profit"],
+    CriterionName.LOCAL_SUPPLY_CHAIN: ["supply", "supplier", "sourcing", "domestic", "raw_material"],
+    CriterionName.SDG_ENVIRONMENTAL_IMPACT: ["sdg", "environmental", "climate", "waste", "carbon", "sustainability"],
+    CriterionName.MANAGEMENT_ORGANOGRAM: ["organogram", "license", "registration", "management", "governance", "structure"],
+    CriterionName.COMMUNITY_IMPACT: ["beneficiar", "community", "social_impact", "clinic", "school"],
+    CriterionName.SCALABILITY: ["scalab", "expansion", "growth", "market"],
+}
+
+
+def extract_facts_from_pack(pack: Optional[ApplicationPack]) -> dict:
+    """
+    Extracts normalized factual metrics from ApplicationPack for deterministic rule evaluation.
+    """
+    facts: Dict[str, Any] = {}
+    if not pack:
+        return facts
+
+    app = pack.application
+    if app:
+        if app.business_info:
+            b = app.business_info
+            facts["business_name"] = b.business_name
+            facts["tin_number"] = b.tin_number
+            facts["location"] = b.location
+            facts["sector"] = b.sector
+            facts["years_in_operation"] = b.years_in_operation
+            facts["business_info.years_in_operation"] = b.years_in_operation
+            facts["ownership_structure"] = b.ownership_structure
+            facts["female_ownership_percentage"] = b.female_ownership_percentage
+            facts["business_info.female_ownership_percentage"] = b.female_ownership_percentage
+
+        if app.employment:
+            e = app.employment
+            facts["total_staff"] = e.total_staff
+            facts["employment.total_staff"] = e.total_staff
+            facts["employee_count"] = e.total_staff
+            if e.gender_split:
+                facts["female_staff"] = e.gender_split.female
+                facts["employment.gender_split.female"] = e.gender_split.female
+                facts["male_staff"] = e.gender_split.male
+            if e.age_split:
+                facts["youth_staff"] = e.age_split.youth_18_29
+                facts["employment.age_split.youth_18_29"] = e.age_split.youth_18_29
+
+        if app.financials:
+            f = app.financials
+            if f.sales_history:
+                facts["financials.sales_history"] = f.sales_history
+                rev_values = [
+                    s.revenue_etb for s in f.sales_history
+                    if hasattr(s, "revenue_etb") and s.revenue_etb is not None
+                ]
+                if rev_values:
+                    facts["revenue_etb"] = max(rev_values)
+                    facts["annual_sales"] = max(rev_values)
+            if f.machinery_list:
+                facts["machinery_list"] = f.machinery_list
+                facts["visible_machinery"] = f.machinery_list
+                facts["machinery_count"] = len(f.machinery_list)
+
+        if app.organogram:
+            facts["organogram"] = app.organogram
+            facts["organogram_count"] = len(app.organogram)
+
+    impact = pack.impact
+    if impact:
+        facts["project_title"] = impact.project_title
+        facts["impact.project_title"] = impact.project_title
+        facts["impact.location"] = impact.location
+        facts["target_beneficiaries"] = impact.target_beneficiaries
+        facts["impact.target_beneficiaries"] = impact.target_beneficiaries
+        facts["etb_financial_target"] = impact.etb_financial_target
+        if impact.sdgs:
+            facts["sdgs"] = [s.value if hasattr(s, "value") else str(s) for s in impact.sdgs]
+            facts["sdg_count"] = len(impact.sdgs)
+        if impact.milestones:
+            facts["milestones"] = impact.milestones
+            m_text = " ".join([
+                m if isinstance(m, str) else getattr(m, "title", str(m))
+                for m in impact.milestones
+            ]).lower()
+            if any(term in m_text for term in ("solar", "tech", "modular", "patent", "assembly", "inverter")):
+                facts["tech_innovation"] = True
+                facts["has_proprietary_tech"] = True
+
+    return facts
+
+
+def extract_provenance_from_pack(pack: Optional[ApplicationPack], facts: dict) -> dict:
+    """
+    Extracts the provenance ledger from the pack.
+    If the pack was submitted with self-reported application facts but without an explicit
+    OCR verification ledger, defaults populated fields to APPLICANT_STATED (capped at 65%).
+    If pack has no facts or is missing, returns empty dictionary (treated as MISSING).
+    """
+    if not pack:
+        return {}
+
+    prov = dict(pack.provenance or {})
+    if not prov and (pack.application or pack.impact):
+        # Default self-reported facts to APPLICANT_STATED
+        for key in facts.keys():
+            prov[key] = FieldStatus.APPLICANT_STATED
+
+    return prov
 
 
 def score_application(
@@ -69,32 +170,90 @@ def score_application(
 ) -> ScoringResult:
     """
     Evaluates and scores an ApplicationPack across 9 weighted criteria under the ALPHAX Internal Prototype Grid (v1.0-prototype).
+    
+    Architecture (Scoring Decision Contract):
+    1. Pure Python code owns all numerical points via `agents/rule_engine.py`.
+    2. Epistemic provenance caps and gap deductions are applied deterministically.
+    3. Gemini LLM is invoked strictly to author the qualitative `reviewer_summary`.
     """
-    eligibility_result = run_eligibility_gate(pack.application)
+    # 1. Deterministic Eligibility Gate
+    eligibility_result = run_eligibility_gate(pack.application if pack else None)
 
+    # 2. Extract facts and provenance from ApplicationPack
+    facts = extract_facts_from_pack(pack)
+    provenance = extract_provenance_from_pack(pack, facts)
+
+    # 3. Deterministic Criterion Evaluation (Pure Python Rule Engine)
+    criteria_scores: List[CriterionScore] = []
+    for criterion in CriterionName:
+        cs = evaluate_criterion(
+            criterion_name=criterion,
+            variant=variant,
+            facts=facts,
+            provenance=provenance,
+        )
+
+        # Gap penalty: Annotate missing evidence identified in the pack's gap ledger
+        if pack and pack.gaps:
+            relevant_gaps = [
+                g for g in pack.gaps
+                if any(kw in g.field_name.lower() for kw in CRITERION_GAP_KEYWORDS.get(criterion, []))
+            ]
+            if relevant_gaps:
+                gap_notes = " ".join([
+                    f"Score penalized due to missing data: {g.field_name}."
+                    for g in relevant_gaps
+                ])
+                updated_reasoning = f"{cs.reasoning} {gap_notes}".strip()
+                cs = CriterionScore(
+                    criterion=cs.criterion,
+                    max_points=cs.max_points,
+                    awarded_points=cs.awarded_points,
+                    reasoning=updated_reasoning,
+                )
+
+        criteria_scores.append(cs)
+
+    # 4. Deterministic Total Score Calculation
+    total_score = calculate_total_score(criteria_scores)
+
+    # 5. Narrative Reviewer Summary Generation (LLM owns ONLY sentences)
     ai_client = client or get_gemini_client(api_key=api_key)
 
-    scoring_payload = {
-        "designated_grid_variant": variant.value,
-        "eligibility_gate_result": eligibility_result.model_dump(),
-        "application_data": pack.application.model_dump() if pack.application else None,
-        "impact_data": pack.impact.model_dump() if pack.impact else None,
-        "identified_gaps": [g.model_dump() for g in pack.gaps],
+    summary_payload = {
+        "grid_variant": variant.value,
+        "total_score": total_score,
+        "eligibility_passed": eligibility_result.is_eligible,
+        "eligibility_reasoning": eligibility_result.gate_reasoning,
+        "deterministic_criteria_scores": [
+            {
+                "criterion": cs.criterion.value,
+                "awarded_points": cs.awarded_points,
+                "max_points": cs.max_points,
+                "reasoning": cs.reasoning,
+            }
+            for cs in criteria_scores
+        ],
+        "identified_gaps": [
+            {"field": g.field_name, "priority": g.priority.value, "reason": g.reason_missing}
+            for g in (pack.gaps if pack else [])
+        ],
     }
 
-    schema_prompt = f"\nRETURN ONLY VALID JSON MATCHING THIS EXACT SCHEMA:\n{json.dumps(ScoringResult.model_json_schema(), default=str)}"
-    user_prompt = f"""Evaluate this SME application according to the {variant.value} track of the ALPHAX Internal Prototype Grid (v1.0-prototype) and 100-point rubric:
+    user_prompt = f"""Generate a concise, 2-3 sentence executive reviewer summary for this evaluated application:
 
-APPLICATION DOSSIER:
-{json.dumps(scoring_payload, indent=2, ensure_ascii=False)}
-{schema_prompt}"""
+DETERMINISTIC EVALUATION RESULTS:
+{json.dumps(summary_payload, indent=2, ensure_ascii=False)}
+
+Respond strictly in JSON with the 'reviewer_summary' string."""
 
     config = types.GenerateContentConfig(
-        system_instruction=SCORER_SYSTEM_PROMPT,
+        system_instruction=REVIEWER_SUMMARY_SYSTEM_PROMPT,
         response_mime_type="application/json",
         temperature=0.0,
     )
 
+    reviewer_summary = "Scoring completed; narrative summary unavailable."
     try:
         response, _ = call_gemini_with_fallback(
             client=ai_client,
@@ -103,102 +262,30 @@ APPLICATION DOSSIER:
             config=config,
         )
         raw_text = response.text if response and hasattr(response, "text") else ""
-    except Exception as err:
-        fallback_scores = _build_default_scores(variant)
-        return ScoringResult(
-            grid_variant=variant,
-            total_score=sum(c.awarded_points for c in fallback_scores),
-            criteria_scores=fallback_scores,
-            eligibility_gate=eligibility_result,
-            reviewer_summary=f"Evaluation generated via fallback engine (API note: {str(err)})."
-        )
-
-    if not raw_text:
-        fallback_scores = _build_default_scores(variant)
-        return ScoringResult(
-            grid_variant=variant,
-            total_score=sum(c.awarded_points for c in fallback_scores),
-            criteria_scores=fallback_scores,
-            eligibility_gate=eligibility_result,
-            reviewer_summary="Scored with default track baseline."
-        )
-
-    try:
-        res = ScoringResult.model_validate_json(raw_text)
-        res.total_score = sum(c.awarded_points for c in res.criteria_scores)
-        res.eligibility_gate = eligibility_result
-        return res
-    except (ValidationError, json.JSONDecodeError) as err:
-        try:
-            retry_prompt = f"Your previous JSON was invalid: {str(err)}. Return corrected JSON matching schema:\n{json.dumps(ScoringResult.model_json_schema(), default=str)}"
-            retry_contents = [types.Part.from_text(text=retry_prompt), types.Part.from_text(text=raw_text)]
-            retry_resp, _ = call_gemini_with_fallback(
-                client=ai_client,
-                model=model,
-                contents=retry_contents,
-                config=config,
-            )
-            retry_text = retry_resp.text if retry_resp and hasattr(retry_resp, "text") else ""
-            res = ScoringResult.model_validate_json(retry_text)
-            res.total_score = sum(c.awarded_points for c in res.criteria_scores)
-            res.eligibility_gate = eligibility_result
-            return res
-        except Exception:
+        if raw_text:
             try:
                 data = json.loads(raw_text)
-                res = ScoringResult.model_validate(data)
-                res.total_score = sum(c.awarded_points for c in res.criteria_scores)
-                res.eligibility_gate = eligibility_result
-                return res
-            except Exception:
-                fallback_scores = _build_default_scores(variant)
-                return ScoringResult(
-                    grid_variant=variant,
-                    total_score=sum(c.awarded_points for c in fallback_scores),
-                    criteria_scores=fallback_scores,
-                    eligibility_gate=eligibility_result,
-                    reviewer_summary="Evaluated under baseline track criteria."
-                )
+                if isinstance(data, dict) and data.get("reviewer_summary"):
+                    reviewer_summary = str(data["reviewer_summary"]).strip()
+                elif isinstance(data, str) and len(data.strip()) >= 20:
+                    reviewer_summary = data.strip()
+            except json.JSONDecodeError:
+                if len(raw_text.strip()) >= 20:
+                    reviewer_summary = raw_text.strip()
+    except Exception:
+        # LLM fallback still produces a valid ScoringResult with deterministic scores
+        reviewer_summary = "Scoring completed; narrative summary unavailable."
 
+    if len(reviewer_summary) < 20:
+        reviewer_summary = "Scoring completed; narrative summary unavailable."
 
-def _build_default_scores(variant: GridVariant) -> list[CriterionScore]:
-    """Builds fallback default scores strictly summing within the track's max limits."""
-    if variant == GridVariant.WOMEN_YOUTH_LED:
-        return [
-            CriterionScore(criterion=CriterionName.JOB_CREATION, max_points=20, awarded_points=12, reasoning="Baseline job creation score."),
-            CriterionScore(criterion=CriterionName.GENDER_YOUTH_INCLUSION, max_points=30, awarded_points=22, reasoning="Female/youth participation noted."),
-            CriterionScore(criterion=CriterionName.INNOVATION_UNIQUE_FEATURE, max_points=5, awarded_points=3, reasoning="Practical innovation noted."),
-            CriterionScore(criterion=CriterionName.FINANCIAL_VIABILITY, max_points=10, awarded_points=6, reasoning="Financial operations noted."),
-            CriterionScore(criterion=CriterionName.LOCAL_SUPPLY_CHAIN, max_points=10, awarded_points=6, reasoning="Local sourcing noted."),
-            CriterionScore(criterion=CriterionName.SDG_ENVIRONMENTAL_IMPACT, max_points=10, awarded_points=6, reasoning="Social & SDG impact noted."),
-            CriterionScore(criterion=CriterionName.MANAGEMENT_ORGANOGRAM, max_points=5, awarded_points=3, reasoning="Management structure noted."),
-            CriterionScore(criterion=CriterionName.COMMUNITY_IMPACT, max_points=5, awarded_points=3, reasoning="Community benefit noted."),
-            CriterionScore(criterion=CriterionName.SCALABILITY, max_points=5, awarded_points=3, reasoning="Expansion potential noted."),
-        ]
-    elif variant == GridVariant.INNOVATION_TECH:
-        return [
-            CriterionScore(criterion=CriterionName.JOB_CREATION, max_points=20, awarded_points=14, reasoning="Technical job creation score."),
-            CriterionScore(criterion=CriterionName.GENDER_YOUTH_INCLUSION, max_points=5, awarded_points=3, reasoning="Inclusion score noted."),
-            CriterionScore(criterion=CriterionName.INNOVATION_UNIQUE_FEATURE, max_points=30, awarded_points=24, reasoning="Strong technical novelty."),
-            CriterionScore(criterion=CriterionName.FINANCIAL_VIABILITY, max_points=10, awarded_points=7, reasoning="Commercial model viable."),
-            CriterionScore(criterion=CriterionName.LOCAL_SUPPLY_CHAIN, max_points=10, awarded_points=7, reasoning="Domestic supply integration."),
-            CriterionScore(criterion=CriterionName.SDG_ENVIRONMENTAL_IMPACT, max_points=10, awarded_points=7, reasoning="Clean-tech SDG alignment."),
-            CriterionScore(criterion=CriterionName.MANAGEMENT_ORGANOGRAM, max_points=5, awarded_points=4, reasoning="Engineering leadership."),
-            CriterionScore(criterion=CriterionName.COMMUNITY_IMPACT, max_points=5, awarded_points=3, reasoning="Community benefit noted."),
-            CriterionScore(criterion=CriterionName.SCALABILITY, max_points=5, awarded_points=4, reasoning="High scalability."),
-        ]
-    else:
-        return [
-            CriterionScore(criterion=CriterionName.JOB_CREATION, max_points=20, awarded_points=14, reasoning="SME employment generation."),
-            CriterionScore(criterion=CriterionName.GENDER_YOUTH_INCLUSION, max_points=15, awarded_points=10, reasoning="Balanced demographic inclusion."),
-            CriterionScore(criterion=CriterionName.INNOVATION_UNIQUE_FEATURE, max_points=15, awarded_points=10, reasoning="Value-add processing."),
-            CriterionScore(criterion=CriterionName.FINANCIAL_VIABILITY, max_points=15, awarded_points=10, reasoning="Financial revenue track record."),
-            CriterionScore(criterion=CriterionName.LOCAL_SUPPLY_CHAIN, max_points=10, awarded_points=7, reasoning="Domestic supply chain."),
-            CriterionScore(criterion=CriterionName.SDG_ENVIRONMENTAL_IMPACT, max_points=10, awarded_points=7, reasoning="SDG impact."),
-            CriterionScore(criterion=CriterionName.MANAGEMENT_ORGANOGRAM, max_points=5, awarded_points=3, reasoning="Management structure."),
-            CriterionScore(criterion=CriterionName.COMMUNITY_IMPACT, max_points=5, awarded_points=3, reasoning="Local community support."),
-            CriterionScore(criterion=CriterionName.SCALABILITY, max_points=5, awarded_points=3, reasoning="Business scalability."),
-        ]
+    return ScoringResult(
+        grid_variant=variant,
+        total_score=total_score,
+        criteria_scores=criteria_scores,
+        eligibility_gate=eligibility_result,
+        reviewer_summary=reviewer_summary,
+    )
 
 
 # =============================================================================

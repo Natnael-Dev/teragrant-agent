@@ -1,7 +1,7 @@
 """
 Unit tests for Eligibility Gate, Grid Router, and 100-Point Evaluation Scorer.
 Verifies pure-Python deterministic gate logic, router logic, variant point allocations,
-and gap penalty enforcement.
+deterministic rule engine scoring, and gap penalty enforcement.
 """
 
 import json
@@ -20,6 +20,7 @@ from schemas.application_schema import (
 )
 from schemas.impact_schema import ImpactProtocol, SDGIndicator, Milestone
 from schemas.gap_schema import ApplicationPack, Gap, GapPriority
+from schemas.provenance_schema import FieldStatus, FieldProvenance
 from schemas.scoring_schema import (
     ExclusionFactor,
     EligibilityGate,
@@ -31,6 +32,7 @@ from schemas.scoring_schema import (
 from agents.eligibility_agent import run_eligibility_gate
 from agents.router_agent import route_to_grid_variant
 from agents.scorer_agent import score_application
+from agents.rule_engine import evaluate_criterion, calculate_total_score
 
 
 def get_sample_application():
@@ -169,21 +171,23 @@ def test_grid_router_routes_to_women_youth_led():
 
 
 # =========================================================================
-# 3. 100-POINT SCORER TESTS (MOCKED)
+# 3. 100-POINT SCORER TESTS (DETERMINISTIC ENGINE + MOCKED LLM SUMMARY)
 # =========================================================================
 
 def test_100_point_scorer_innovation_tech_variant():
     """
-    Test 3: Mocked Gemini API call for INNOVATION_TECH variant.
+    Test 3: Evaluates INNOVATION_TECH variant.
+    Numerical points are produced deterministically by the rule engine.
+    Gemini is mocked to return exclusively the reviewer_summary narrative text.
     Asserts:
     1. Result parsed cleanly into ScoringResult.
     2. Exactly 9 criteria scores present.
     3. INNOVATION_UNIQUE_FEATURE has max_points=30 and FINANCIAL_VIABILITY has max_points=10.
     4. total_score <= 100 and matches the mathematical sum of awarded points.
     5. EligibilityGate is attached.
+    6. Gap penalty notes are appended to criterion reasoning.
     """
     app = get_sample_application()
-    # Confirm all declarations for this test
     for k in app.declarations.model_dump().keys():
         setattr(app.declarations, k, True)
 
@@ -201,76 +205,12 @@ def test_100_point_scorer_innovation_tech_variant():
         ],
     )
 
-    mock_scoring_payload = {
-        "grid_variant": "INNOVATION_TECH",
-        "total_score": 81,
-        "criteria_scores": [
-            {
-                "criterion": "JOB_CREATION",
-                "max_points": 20,
-                "awarded_points": 16,
-                "reasoning": "Enterprise currently employs 10 staff with credible projections to create 15 additional technical assembly jobs. Target figures align with local regional demand.",
-            },
-            {
-                "criterion": "GENDER_YOUTH_INCLUSION",
-                "max_points": 5,  # REWEIGHTED FOR INNOVATION_TECH
-                "awarded_points": 4,
-                "reasoning": "Strong demographic leadership with 60% female equity ownership and 70% youth workforce. Clear policies ensure equal pay across assembly teams.",
-            },
-            {
-                "criterion": "INNOVATION_UNIQUE_FEATURE",
-                "max_points": 30,  # DOUBLE WEIGHT UNDER INNOVATION_TECH
-                "awarded_points": 26,
-                "reasoning": "Proprietary modular solar inverter design engineered specifically for fluctuating rural electrical grids. Hardware is assembled domestically reducing import dependency.",
-            },
-            {
-                "criterion": "FINANCIAL_VIABILITY",
-                "max_points": 10,  # REDUCED TO 10 UNDER INNOVATION_TECH
-                "awarded_points": 5,
-                "reasoning": "Current cash flow is stable with positive gross margins on existing inventory sales. Score penalized due to missing data: financials.sales_history.",
-            },
-            {
-                "criterion": "LOCAL_SUPPLY_CHAIN",
-                "max_points": 10,
-                "awarded_points": 8,
-                "reasoning": "Source 65% of metal fabrication and chassis components from regional suppliers in Tigray. Logistics routes have established local distribution partners.",
-            },
-            {
-                "criterion": "SDG_ENVIRONMENTAL_IMPACT",
-                "max_points": 10,
-                "awarded_points": 9,
-                "reasoning": "Direct alignment with SDG 7 (Clean Energy) and SDG 13 (Climate Action) by replacing diesel generators with solar power. Displaced emissions verified via benchmark metrics.",
-            },
-            {
-                "criterion": "MANAGEMENT_ORGANOGRAM",
-                "max_points": 5,
-                "awarded_points": 4,
-                "reasoning": "Core leadership team has verified technical and electrical engineering backgrounds. Key executive roles have documented reporting structures.",
-            },
-            {
-                "criterion": "COMMUNITY_IMPACT",
-                "max_points": 5,
-                "awarded_points": 5,
-                "reasoning": "Prioritizes electrification for 5,000 community members and rural medical clinics. Subsidized power models are established for non-profit health centers.",
-            },
-            {
-                "criterion": "SCALABILITY",
-                "max_points": 5,
-                "awarded_points": 4,
-                "reasoning": "Modular mini-unit design is readily replicable across neighboring woredas and regions. Manufacturing capacity can scale with capital infusion.",
-            },
-        ],
-        "eligibility_gate": {
-            "is_eligible": True,
-            "failed_declarations": [],
-            "triggered_exclusions": [],
-            "gate_reasoning": "All 15 mandatory declarations confirmed and zero instant-kill exclusion criteria triggered.",
-        },
-        "reviewer_summary": "Sheba CleanTech PLC presents an exceptional technology-driven grant proposal with robust female ownership and transformative rural electrification impact. The domestic assembly of solar hardware provides strong import substitution, while the main risk centers on the need for multi-year historical financial verification. The evaluation committee strongly recommends a field inspection to audit the assembly facility and verify local supply contracts.",
-    }
+    mock_summary_json = json.dumps({
+        "reviewer_summary": "Sheba CleanTech PLC presents an exceptional technology-driven grant proposal with robust female ownership and transformative rural electrification impact. The domestic assembly of solar hardware provides strong import substitution, while historical financial records require field audit."
+    })
 
     mock_response = MagicMock()
-    mock_response.text = json.dumps(mock_scoring_payload)
+    mock_response.text = mock_summary_json
 
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = mock_response
@@ -279,14 +219,13 @@ def test_100_point_scorer_innovation_tech_variant():
 
     assert isinstance(result, ScoringResult)
     assert result.grid_variant == GridVariant.INNOVATION_TECH
-    assert result.total_score == 81
     assert result.total_score <= 100
+    assert result.total_score == sum(c.awarded_points for c in result.criteria_scores)
     assert len(result.criteria_scores) == 9
 
     # Check Innovation Tech variant max points
     innov_score = next(c for c in result.criteria_scores if c.criterion == CriterionName.INNOVATION_UNIQUE_FEATURE)
     assert innov_score.max_points == 30
-    assert innov_score.awarded_points == 26
 
     fin_score = next(c for c in result.criteria_scores if c.criterion == CriterionName.FINANCIAL_VIABILITY)
     assert fin_score.max_points == 10
@@ -298,3 +237,114 @@ def test_100_point_scorer_innovation_tech_variant():
 
     # Check Eligibility Gate is intact and attached
     assert result.eligibility_gate.is_eligible is True
+    assert "Sheba CleanTech PLC" in result.reviewer_summary
+
+
+def test_scoring_uses_deterministic_rule_engine():
+    """
+    Verifies that score_application() delegates numerical scoring to rule_engine.
+    Asserts:
+    1. Job creation score exactly matches evaluate_criterion() output for 15 employees.
+    2. Total score is the exact sum of the deterministic points.
+    """
+    app = get_sample_application()
+    app.employment.total_staff = 15
+    app.employment.gender_split = GenderSplit(male=7, female=8, other=0)
+    app.employment.age_split = AgeBandSplit(youth_18_29=10, adults_30_50=5, seniors_above_50=0)
+
+    impact = get_sample_impact()
+    prov = {
+        "employment.total_staff": FieldProvenance(
+            field_path="employment.total_staff",
+            value=15,
+            status=FieldStatus.DOCUMENT_VERIFIED,
+            confidence=0.95,
+            source_type="license",
+            evidence_snippet="Payroll register verifies 15 full-time employees.",
+        )
+    }
+    pack = ApplicationPack(application=app, impact=impact, gaps=[], provenance=prov)
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value.text = json.dumps({
+        "reviewer_summary": "Enterprise demonstrates solid workforce deployment and viable operations."
+    })
+
+    result = score_application(pack=pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+
+    # Check Job Creation against rule_engine evaluate_criterion
+    facts = {"total_staff": 15, "employment.total_staff": 15}
+    expected_job_score = evaluate_criterion(
+        CriterionName.JOB_CREATION,
+        GridVariant.GENERAL_SME,
+        facts=facts,
+        provenance=prov,
+    )
+
+    actual_job_score = next(c for c in result.criteria_scores if c.criterion == CriterionName.JOB_CREATION)
+    assert actual_job_score.awarded_points == expected_job_score.awarded_points
+    assert actual_job_score.awarded_points == 14  # 10-19 employee band under DOCUMENT_VERIFIED
+    assert result.total_score == sum(c.awarded_points for c in result.criteria_scores)
+    assert result.total_score == calculate_total_score(result.criteria_scores)
+
+
+def test_scoring_reproducibility():
+    """
+    Verifies that calling score_application() twice with the same input and mocked LLM summary
+    yields identical integer numerical scores every time.
+    """
+    app = get_sample_application()
+    impact = get_sample_impact()
+    pack = ApplicationPack(application=app, impact=impact, gaps=[])
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value.text = json.dumps({
+        "reviewer_summary": "Consistent deterministic evaluation summary across multiple runs."
+    })
+
+    res1 = score_application(pack=pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+    res2 = score_application(pack=pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+
+    assert res1.total_score == res2.total_score
+    assert isinstance(res1.total_score, int)
+    assert len(res1.criteria_scores) == len(res2.criteria_scores) == 9
+    for c1, c2 in zip(res1.criteria_scores, res2.criteria_scores):
+        assert c1.criterion == c2.criterion
+        assert c1.awarded_points == c2.awarded_points
+        assert isinstance(c1.awarded_points, int)
+
+
+def test_scoring_llm_failure_fallback():
+    """
+    Verifies that if Gemini fails or raises an error, deterministic scores are still
+    awarded accurately and a default narrative summary is provided without crashing.
+    """
+    app = get_sample_application()
+    impact = get_sample_impact()
+    pack = ApplicationPack(application=app, impact=impact, gaps=[])
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = RuntimeError("Gemini API connection error")
+
+    result = score_application(pack=pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+
+    assert isinstance(result, ScoringResult)
+    assert result.total_score == sum(c.awarded_points for c in result.criteria_scores)
+    assert result.reviewer_summary == "Scoring completed; narrative summary unavailable."
+    assert len(result.criteria_scores) == 9
+
+
+def test_scoring_empty_pack_graceful_handling():
+    """
+    Verifies that passing an empty pack awards 0 points gracefully across all criteria.
+    """
+    empty_pack = ApplicationPack(application=None, impact=None, gaps=[])
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value.text = json.dumps({
+        "reviewer_summary": "Incomplete application dossier with zero verified metrics."
+    })
+
+    result = score_application(pack=empty_pack, variant=GridVariant.GENERAL_SME, client=mock_client)
+    assert result.total_score == 0
+    for cs in result.criteria_scores:
+        assert cs.awarded_points == 0
