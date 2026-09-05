@@ -39,6 +39,7 @@ from agents.consent_agent import record_consent, evaluate_verdict
 from agents.contradiction_agent import detect_contradictions
 from app.digital_twin import convert_to_serializable
 from schemas.consent_schema import ConsentVerdict
+from schemas.provenance_schema import FieldStatus
 from schemas.scoring_schema import GridVariant
 from app.database import init_db, SessionLocal, get_db
 from app.models import (
@@ -89,7 +90,8 @@ SESSION: Dict[str, Any] = {
     "processed": False,
     "digital_twin_data": {},
     "contradictions": [],
-    "current_application_id": None
+    "current_application_id": None,
+    "ai_fallback_used": False
 }
 
 from app.i18n import TRANSLATIONS, get_translations
@@ -267,7 +269,9 @@ async def reviewer_dashboard(request: Request, source: Optional[str] = Query(Non
             "session_count": data.get("session_count", 0),
             "demo_count": data.get("demo_count", 12),
             "grid_comparison": data.get("grid_comparison"),
-            "show_demo_banner": show_demo_banner
+            "show_demo_banner": show_demo_banner,
+            "session": SESSION,
+            "ai_fallback_used": SESSION.get("ai_fallback_used", False)
         }
     )
 
@@ -536,11 +540,35 @@ async def api_process(
         scoring_res = score_application(pack=pack_res, variant=routed_variant)
         sensitivity_res = score_sensitivity(pack_res, scoring_res)
 
-        # Contradiction Detection (Cross-modal, mathematical, & semantic)
+        # Contradiction Detection & Fallback Honesty Tracking
+        ai_fallback_used = False
+        if scoring_res and (
+            "narrative summary unavailable" in getattr(scoring_res, "reviewer_summary", "").lower()
+            or "offline" in getattr(scoring_res, "reviewer_summary", "").lower()
+        ):
+            ai_fallback_used = True
+
+        if intake_gaps and any(
+            "failed" in getattr(g, "reason_missing", "").lower()
+            or "quota" in getattr(g, "reason_missing", "").lower()
+            or "unavailable" in getattr(g, "reason_missing", "").lower()
+            for g in intake_gaps
+        ):
+            ai_fallback_used = True
+
         try:
             contradictions_res = detect_contradictions(pack=pack_res, workshop_data=work_res)
         except Exception:
             contradictions_res = []
+            ai_fallback_used = True
+
+        # Ensure cross-modal contradictions update the provenance ledger
+        if contradictions_res and pack_res and pack_res.provenance:
+            for c in contradictions_res:
+                c_text = (getattr(c, "explanation", "") + " " + getattr(c, "claim_a", "") + " " + getattr(c, "claim_b", "")).lower()
+                if any(w in c_text for w in ["staff", "headcount", "workforce", "worker", "employment"]):
+                    if "employment.total_staff" in pack_res.provenance:
+                        pack_res.provenance["employment.total_staff"].status = FieldStatus.CONTRADICTED
 
         readiness_res = submission_readiness(pack_res, scoring_res.eligibility_gate, contradictions=contradictions_res)
 
@@ -600,6 +628,7 @@ async def api_process(
             "machinery_requested": mach_req,
         }
         SESSION["processed"] = True
+        SESSION["ai_fallback_used"] = ai_fallback_used
 
         # Invalidate reviewer cache since SESSION changed
         invalidate_reviewer_cache("session")
@@ -975,6 +1004,9 @@ async def api_export():
         "scoring_result": convert_to_serializable(scoring_res) if scoring_res else None,
         "criteria_scores": convert_to_serializable(criteria_scores_data),
     }
+    if SESSION.get("ai_fallback_used"):
+        export_payload["system_status"] = "OFFLINE_FALLBACK_USED - AI narrative generation unavailable. Scores are deterministic."
+
     return JSONResponse(
         content=convert_to_serializable(export_payload),
         headers={"Content-Disposition": "attachment; filename=TeraGrant_Application_Pack.json"}

@@ -25,6 +25,12 @@
     <span class="step-node">○ Readiness</span>
   </div>
 
+  {% if session.get('ai_fallback_used') or ai_fallback_used %}
+  <div style="background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+    ⚠️ System operated in offline fallback mode. AI narratives unavailable.
+  </div>
+  {% endif %}
+
   <div style="margin-bottom: 24px;">
     <h2 style="font-size: 24px; font-weight: 800; color: #111827; margin: 0 0 6px 0;">Official Digital Twin Application</h2>
     <p style="font-size: 14px; color: #6B7280; margin: 0;">Epistemic provenance tracking for every field in the GIZ Challenge 1 schema.</p>
@@ -53,11 +59,13 @@
             {% if twin.company_name %}
               <strong>{{ twin.company_name }}</strong>
             {% else %}
-              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+              <span style="color: #DC2626; font-style: italic;">Not Established - null (Missing)</span>
             {% endif %}
           </td>
           <td style="padding: 12px 0;">
-            {% if twin.company_name %}
+            {% if provenance and 'business_info.company_name' in provenance and provenance['business_info.company_name'].status == 'CONTRADICTED' %}
+              <span class="chip" style="background: #FEF3C7; color: #D97706; font-weight: 600;">{{ icon('alert', size=11, color='#D97706') }} Contradicted</span>
+            {% elif twin.company_name %}
               <span class="chip chip-verified">{{ icon('check', size=11, color='#059669') }} Document Verified</span>
             {% else %}
               <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
@@ -81,7 +89,7 @@
             {% if twin.tin_number %}
               <code>{{ twin.tin_number }}</code>
             {% else %}
-              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+              <span style="color: #DC2626; font-style: italic;">Not Established - null (Missing)</span>
             {% endif %}
           </td>
           <td style="padding: 12px 0;">
@@ -109,7 +117,7 @@
             {% if twin.location %}
               {{ twin.location }}
             {% else %}
-              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+              <span style="color: #DC2626; font-style: italic;">Not Established - null (Missing)</span>
             {% endif %}
           </td>
           <td style="padding: 12px 0;">
@@ -130,11 +138,13 @@
             {% if twin.total_staff is not none and twin.total_staff > 0 %}
               <strong>{{ twin.total_staff }} Employees</strong>
             {% else %}
-              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+              <span style="color: #DC2626; font-style: italic;">Not Established - null (Missing)</span>
             {% endif %}
           </td>
           <td style="padding: 12px 0;">
-            {% if twin.total_staff is not none and twin.total_staff > 0 %}
+            {% if provenance and 'employment.total_staff' in provenance and provenance['employment.total_staff'].status == 'CONTRADICTED' %}
+              <span class="chip" style="background: #FEF3C7; color: #D97706; font-weight: 600;">{{ icon('alert', size=11, color='#D97706') }} Contradicted</span>
+            {% elif twin.total_staff is not none and twin.total_staff > 0 %}
               <span class="chip chip-stated">{{ icon('mic', size=11, color='#2563EB') }} Applicant Stated</span>
             {% else %}
               <span class="chip chip-missing">{{ icon('alert', size=11, color='#DC2626') }} Missing</span>
@@ -151,7 +161,7 @@
             {% if twin.annual_sales %}
               <strong>{{ "{:,.0f}".format(twin.annual_sales) }} ETB</strong>
             {% else %}
-              <span style="color: #DC2626; font-style: italic;">null (Missing)</span>
+              <span style="color: #DC2626; font-style: italic;">Not Established - null (Missing)</span>
             {% endif %}
           </td>
           <td style="padding: 12px 0;">

@@ -88,24 +88,19 @@ def _build_deterministic_pack(
     has_audio = bool(audio_data and (audio_data.business_name or audio_data.employee_count or audio_data.product_type or (audio_data.transcript and len(audio_data.transcript.strip()) > 10)))
     has_workshop = bool(workshop_data and workshop_data.is_legible and (workshop_data.estimated_people_present is not None or workshop_data.visible_machinery))
 
-    if not (has_license or has_audio or has_workshop):
-        return ApplicationPack(
-            application=None,
-            impact=None,
-            gaps=[
-                Gap(
-                    field_name="intake_sources",
-                    reason_missing="All provided intake sources are unreadable, corrupted, or empty.",
-                    required_from="Applicant",
-                    priority=GapPriority.HIGH,
-                )
-            ],
-            provenance={},
-        )
-
     gaps: List[Gap] = []
     provenance: Dict[str, FieldProvenance] = {}
     ts_now = datetime.now(timezone.utc).isoformat()
+
+    if not (has_license or has_audio or has_workshop):
+        gaps.append(
+            Gap(
+                field_name="intake_sources",
+                reason_missing="All provided intake sources are unreadable, corrupted, or empty.",
+                required_from="Applicant",
+                priority=GapPriority.HIGH,
+            )
+        )
 
     # 1. Business Info
     lic_name = license_data.business_name.strip() if (has_license and license_data and license_data.business_name and license_data.business_name.strip()) else None
@@ -321,14 +316,15 @@ def _build_deterministic_pack(
         tin_number=tin_val,
         location=loc_val,
         sector=sector_val,
-        years_in_operation=3 if (has_license or has_audio) else None,
-        ownership_structure="PLC" if (has_license or has_audio) else None,
-        female_ownership_percentage=50.0 if (has_license or has_audio) else None,
+        years_in_operation=None,
+        ownership_structure=None,
+        female_ownership_percentage=None,
     )
 
     # 2. Employment Breakdown
     lic_staff_raw = (getattr(license_data, "total_staff", None) or getattr(license_data, "employee_count", None)) if license_data else None
     aud_staff_raw = audio_data.employee_count if (audio_data and audio_data.employee_count is not None and audio_data.employee_count > 0) else None
+    work_staff_raw = workshop_data.estimated_people_present if (workshop_data and workshop_data.estimated_people_present is not None and workshop_data.estimated_people_present > 0) else None
 
     if lic_staff_raw is not None and aud_staff_raw is not None:
         lic_staff_val = int(lic_staff_raw)
@@ -342,7 +338,7 @@ def _build_deterministic_pack(
             gaps.append(
                 Gap(
                     field_name="employment.total_staff",
-                    reason_missing="Sources disagree — applicant must confirm",
+                    reason_missing=f"Sources disagree: Voice claims {aud_staff_val}, License states {lic_staff_val} — applicant must confirm",
                     required_from="Applicant",
                     priority=GapPriority.HIGH,
                 )
@@ -360,13 +356,29 @@ def _build_deterministic_pack(
         staff_conf = 0.95
         staff_snip = f"Official Trade License OCR: {total_staff}"
     elif aud_staff_raw is not None:
-        total_staff = int(aud_staff_raw)
-        staff_status = FieldStatus.APPLICANT_STATED
-        staff_src = "voice"
-        staff_conf = 0.90
-        staff_snip = f"Spoken headcount in voice note: {total_staff}"
-    elif workshop_data and workshop_data.estimated_people_present is not None and workshop_data.estimated_people_present > 0:
-        total_staff = workshop_data.estimated_people_present
+        aud_staff_val = int(aud_staff_raw)
+        if work_staff_raw is not None and abs(aud_staff_val - work_staff_raw) > 2:
+            total_staff = aud_staff_val
+            staff_status = FieldStatus.CONTRADICTED
+            staff_src = "voice"
+            staff_conf = 0.4
+            staff_snip = f"Voice: {aud_staff_val} | Workshop photo: {work_staff_raw}"
+            gaps.append(
+                Gap(
+                    field_name="employment.total_staff",
+                    reason_missing=f"Sources disagree: Voice claims {aud_staff_val}, Workshop photo shows {work_staff_raw} — applicant must confirm",
+                    required_from="Applicant",
+                    priority=GapPriority.HIGH,
+                )
+            )
+        else:
+            total_staff = aud_staff_val
+            staff_status = FieldStatus.APPLICANT_STATED
+            staff_src = "voice"
+            staff_conf = 0.90
+            staff_snip = f"Spoken headcount in voice note: {total_staff}"
+    elif work_staff_raw is not None:
+        total_staff = work_staff_raw
         staff_status = FieldStatus.AI_INFERRED
         staff_src = "workshop"
         staff_conf = 0.75
@@ -483,15 +495,18 @@ def _build_deterministic_pack(
         machinery_list=mach_items,
     )
 
-    organogram = [
-        OrganogramNode(
-            role_title="General Manager / Founder",
-            holder_name=license_data.owner_name if (license_data and license_data.owner_name) else "Owner / Founder",
-            reports_to="Board / Governance",
-            department="Executive",
-            responsibilities=["Strategic leadership and operations"],
-        )
-    ]
+    if license_data and license_data.owner_name:
+        organogram = [
+            OrganogramNode(
+                role_title="General Manager / Founder",
+                holder_name=license_data.owner_name,
+                reports_to="Board / Governance",
+                department="Executive",
+                responsibilities=["Strategic leadership and operations"],
+            )
+        ]
+    else:
+        organogram = []
 
     application = ApplicationSchema(
         business_info=business_info,
@@ -503,15 +518,18 @@ def _build_deterministic_pack(
     )
 
     # 4. Impact Protocol
-    answers_dict = {
-        "business_name": b_name or (license_data.business_name if license_data else "SME Project"),
-        "location": loc_val or "Ethiopia",
-        "sector": sector_val or "Agro-Processing",
-        "requested_etb": 500000.0,
-        "target_beneficiaries": (total_staff * 10) if (total_staff and total_staff > 0) else 50,
-    }
-    audio_facts = audio_data.model_dump() if audio_data else {}
-    impact = build_impact_protocol(answers_dict, audio_facts=audio_facts)
+    if has_license or has_audio or has_workshop:
+        answers_dict = {
+            "business_name": b_name or (license_data.business_name if license_data else "SME Project"),
+            "location": loc_val or "Ethiopia",
+            "sector": sector_val or "Agro-Processing",
+            "requested_etb": 500000.0,
+            "target_beneficiaries": (total_staff * 10) if (total_staff and total_staff > 0) else 50,
+        }
+        audio_facts = audio_data.model_dump() if audio_data else {}
+        impact = build_impact_protocol(answers_dict, audio_facts=audio_facts)
+    else:
+        impact = None
 
     return ApplicationPack(
         application=application,
@@ -530,31 +548,53 @@ def _enrich_provenance_ledger(pack: ApplicationPack, license_data: LicenseExtrac
     prov = dict(pack.provenance or {})
 
     # Check business name
-    if "business_info.company_name" not in prov and pack.application.business_info:
-        name = pack.application.business_info.business_name
-        is_lic = bool(license_data and license_data.is_legible and license_data.business_name == name)
-        prov["business_info.company_name"] = FieldProvenance(
-            field_path="business_info.company_name",
-            value=name,
-            status=FieldStatus.DOCUMENT_VERIFIED if is_lic else FieldStatus.APPLICANT_STATED,
-            confidence=0.95 if is_lic else 0.85,
-            source_type="license" if is_lic else "voice",
-            evidence_snippet=name,
-            timestamp=ts_now,
-        )
+    if "business_info.company_name" not in prov:
+        name = pack.application.business_info.business_name if pack.application.business_info else None
+        if name:
+            is_lic = bool(license_data and license_data.is_legible and license_data.business_name == name)
+            prov["business_info.company_name"] = FieldProvenance(
+                field_path="business_info.company_name",
+                value=name,
+                status=FieldStatus.DOCUMENT_VERIFIED if is_lic else FieldStatus.APPLICANT_STATED,
+                confidence=0.95 if is_lic else 0.85,
+                source_type="license" if is_lic else "voice",
+                evidence_snippet=name,
+                timestamp=ts_now,
+            )
+        else:
+            prov["business_info.company_name"] = FieldProvenance(
+                field_path="business_info.company_name",
+                value=None,
+                status=FieldStatus.MISSING,
+                confidence=0.0,
+                source_type="none",
+                evidence_snippet="Missing business name",
+                timestamp=ts_now,
+            )
 
     # Check total staff
-    if "employment.total_staff" not in prov and pack.application.employment:
-        cnt = pack.application.employment.total_staff
-        prov["employment.total_staff"] = FieldProvenance(
-            field_path="employment.total_staff",
-            value=cnt,
-            status=FieldStatus.APPLICANT_STATED,
-            confidence=0.85,
-            source_type="voice",
-            evidence_snippet=f"Declared headcount: {cnt}",
-            timestamp=ts_now,
-        )
+    if "employment.total_staff" not in prov:
+        cnt = pack.application.employment.total_staff if pack.application.employment else None
+        if cnt is not None:
+            prov["employment.total_staff"] = FieldProvenance(
+                field_path="employment.total_staff",
+                value=cnt,
+                status=FieldStatus.APPLICANT_STATED,
+                confidence=0.85,
+                source_type="voice",
+                evidence_snippet=f"Declared headcount: {cnt}",
+                timestamp=ts_now,
+            )
+        else:
+            prov["employment.total_staff"] = FieldProvenance(
+                field_path="employment.total_staff",
+                value=None,
+                status=FieldStatus.MISSING,
+                confidence=0.0,
+                source_type="none",
+                evidence_snippet="Missing employee headcount",
+                timestamp=ts_now,
+            )
 
     # Check TIN
     if "business_info.tin_number" not in prov:
@@ -568,6 +608,34 @@ def _enrich_provenance_ledger(pack: ApplicationPack, license_data: LicenseExtrac
             evidence_snippet=str(tin) if tin else "Missing from license",
             timestamp=ts_now,
         )
+
+    # Check turnover
+    if "financials.annual_turnover_etb" not in prov:
+        turnover = (
+            pack.application.financials.sales_history[0].revenue_etb
+            if (pack.application.financials and pack.application.financials.sales_history)
+            else None
+        )
+        if turnover is not None:
+            prov["financials.annual_turnover_etb"] = FieldProvenance(
+                field_path="financials.annual_turnover_etb",
+                value=turnover,
+                status=FieldStatus.APPLICANT_STATED,
+                confidence=0.85,
+                source_type="voice",
+                evidence_snippet=f"Declared annual revenue: {turnover}",
+                timestamp=ts_now,
+            )
+        else:
+            prov["financials.annual_turnover_etb"] = FieldProvenance(
+                field_path="financials.annual_turnover_etb",
+                value=None,
+                status=FieldStatus.MISSING,
+                confidence=0.0,
+                source_type="none",
+                evidence_snippet="Missing annual sales revenue",
+                timestamp=ts_now,
+            )
 
     pack.provenance = prov
     return pack
