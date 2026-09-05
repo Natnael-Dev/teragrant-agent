@@ -1,0 +1,240 @@
+{
+  "application": {
+    "business_info": {
+      "business_name": "Selam Agro-Industry PLC",
+      "tin_number": "0098765432",
+      "location": "Adama, Oromia, Ethiopia",
+      "sector": "Agri-Processing & Food Manufacturing",
+      "years_in_operation": 3,
+      "ownership_structure": "Private Limited Company (PLC)",
+      "female_ownership_percentage": 50.0
+    },
+    "employment": {
+      "total_staff": 15,
+      "gender_split": {
+        "male": 7,
+        "female": 8,
+        "other": 0
+      },
+      "age_split": {
+        "youth_18_29": 9,
+        "adults_30_50": 5,
+        "seniors_above_50": 1
+      }
+    },
+    "financials": {
+      "sales_history": [
+        {
+          "year": 2023,
+          "revenue_etb": 350000.0,
+          "gross_profit_etb": 110000.0,
+          "net_profit_etb": 50000.0
+        },
+        {
+          "year": 2024,
+          "revenue_etb": 500000.0,
+          "gross_profit_etb": 160000.0,
+          "net_profit_etb": 80000.0
+        }
+      ],
+      "machinery_list": [
+        {
+          "name": "Industrial Oil Pressing Expeller",
+          "quantity": 1,
+          "estimated_value_etb": 450000.0,
+          "condition": "Operational",
+          "acquisition_year": 2023
+        }
+      ]
+    },
+    "organogram": [
+      {
+        "role_title": "Managing Director",
+        "holder_name": "Almaz Tadesse",
+        "reports_to": null,
+        "department": "Executive",
+        "responsibilities": ["Strategic direction", "Financial oversight"]
+      },
+      {
+        "role_title": "Production Supervisor",
+        "holder_name": "Bekele Girma",
+        "reports_to": "Managing Director",
+        "department": "Production",
+        "responsibilities": ["Press operations", "Quality control"]
+      }
+    ],
+    "declarations": {
+      "declaration_01_legal_compliance": true,
+      "declaration_02_truthful_information": true,
+      "declaration_03_no_conflict_of_interest": true,
+      "declaration_04_no_double_funding": true,
+      "declaration_05_anti_bribery_corruption": true,
+      "declaration_06_environmental_compliance": true,
+      "declaration_07_fair_labor_standards": true,
+      "declaration_08_child_labor_prevention": true,
+      "declaration_09_tax_compliance": true,
+      "declaration_10_safeguarding_policy": true,
+      "declaration_11_data_privacy_consent": true,
+      "declaration_12_financial_record_access": true,
+      "declaration_13_fund_utilization_commitment": true,
+      "declaration_14_regular_reporting_agreement": true,
+      "declaration_15_repayment_on_misuse": true
+    },
+    "exclusion_factors": {
+      "bankruptcy_or_insolvency": false,
+      "sanctions_or_criminal_convictions": false,
+      "prohibited_activities": false
+    }
+  },
+  "impact": {
+    "project_title": "Adama Edible Oil Value-Addition and Cold Press Expansion",
+    "location": "Adama, Oromia, Ethiopia",
+    "target_beneficiaries": 500,
+    "etb_financial_target": 1500000.0,
+    "sector": "Agri-Processing & Food Manufacturing",
+    "sdgs": [
+      "SDG 2: Zero Hunger",
+      "SDG 8: Decent Work and Economic Growth",
+      "SDG 12: Responsible Consumption and Production"
+    ],
+    "milestones": [
+      {
+        "milestone_id": "M1",
+        "title": "Procurement of High-Capacity Filtration Unit",
+        "description": "Acquire and install commercial filtration equipment to increase oil clarity.",
+        "target_month": 3,
+        "verification_evidence": "Supplier invoice, delivery note, and installation inspection certificate."
+      },
+      {
+        "milestone_id": "M2",
+        "title": "Smallholder Oilseed Outgrower Onboarding",
+        "description": "Contract 120 local sunflower and niger seed farmers for direct grain procurement.",
+        "target_month": 6,
+        "verification_evidence": "Signed outgrower purchasing agreements and cooperative delivery logs."
+      }
+    ]
+  },
+  "gaps": [],
+  "provenance": {
+    "business_info.business_name": {
+      "field_path": "business_info.business_name",
+      "value": "Selam Agro-Industry PLC",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.98,
+      "source_type": "license",
+      "evidence_snippet": "Commercial Registration & Trade License: Selam Agro-Industry PLC",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "business_info.tin_number": {
+      "field_path": "business_info.tin_number",
+      "value": "0098765432",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.99,
+      "source_type": "license",
+      "evidence_snippet": "Taxpayer Identification Number (TIN): 0098765432",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "business_info.location": {
+      "field_path": "business_info.location",
+      "value": "Adama, Oromia, Ethiopia",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.95,
+      "source_type": "license",
+      "evidence_snippet": "Principal Place of Business: Adama, Oromia Regional State",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "employment.total_staff": {
+      "field_path": "employment.total_staff",
+      "value": 15,
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.92,
+      "source_type": "license",
+      "evidence_snippet": "Authenticated payroll register for preceding quarter showing 15 active staff",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": "Workshop photographic inspection corroborates 14 work posts occupied"
+    },
+    "business_info.female_ownership_percentage": {
+      "field_path": "business_info.female_ownership_percentage",
+      "value": 50.0,
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.95,
+      "source_type": "license",
+      "evidence_snippet": "Memorandum of Association: 50% shares held by Almaz Tadesse (Female)",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "impact.project_title": {
+      "field_path": "impact.project_title",
+      "value": "Adama Edible Oil Value-Addition and Cold Press Expansion",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.93,
+      "source_type": "workshop",
+      "evidence_snippet": "Site assessment confirms operational cold-press processing plant and expansion floor",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "financials.sales_history": {
+      "field_path": "financials.sales_history",
+      "value": 500000.0,
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.94,
+      "source_type": "license",
+      "evidence_snippet": "Ministry of Revenues standard declaration: 2024 turnover 500,000.00 ETB",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "impact.location": {
+      "field_path": "impact.location",
+      "value": "Adama, Oromia, Ethiopia",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.90,
+      "source_type": "license",
+      "evidence_snippet": "Local grain sourcing supply chain centered in Adama agricultural belt",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "impact.sdgs": {
+      "field_path": "impact.sdgs",
+      "value": "SDG 2, SDG 8, SDG 12",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.90,
+      "source_type": "workshop",
+      "evidence_snippet": "Verified agro-processing waste recycling and zero single-use discharge policy",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "organogram": {
+      "field_path": "organogram",
+      "value": "Managing Director, Production Supervisor",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.92,
+      "source_type": "license",
+      "evidence_snippet": "Authenticated commercial registration displaying executive organogram",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "impact.target_beneficiaries": {
+      "field_path": "impact.target_beneficiaries",
+      "value": 500,
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.88,
+      "source_type": "voice",
+      "evidence_snippet": "Applicant narrative: direct contract farming arrangements for 500 rural households",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    },
+    "scalability": {
+      "field_path": "scalability",
+      "value": "Regional Expansion Plan",
+      "status": "DOCUMENT_VERIFIED",
+      "confidence": 0.85,
+      "source_type": "workshop",
+      "evidence_snippet": "Warehouse and production floor has capacity to accommodate 3 additional expeller lines",
+      "timestamp": "2026-09-05T00:00:00Z",
+      "cross_check": null
+    }
+  }
+}
