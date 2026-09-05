@@ -10,11 +10,13 @@ import hashlib
 import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Form, File, UploadFile, Query
+from fastapi import FastAPI, Request, Form, File, UploadFile, Query, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from app.wizard_logic import transcribe_step1, applicant_display_name, build_fact_chips
@@ -38,13 +40,28 @@ from agents.contradiction_agent import detect_contradictions
 from app.digital_twin import convert_to_serializable
 from schemas.consent_schema import ConsentVerdict
 from schemas.scoring_schema import GridVariant
+from app.database import init_db, SessionLocal, get_db
+from app.models import (
+    ApplicationRecord,
+    EvidenceRecord,
+    ExtractedFieldRecord,
+    CriterionScoreRecord,
+    ReviewRecord,
+)
 
 load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024  # 50MB Limit
 
-app = FastAPI(title="TeraGrant Agent API", version="2.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(title="TeraGrant Agent API", version="2.0.0", lifespan=lifespan)
 
 # Static files and Templates
 app.mount("/static", StaticFiles(directory=str(PROJECT_ROOT / "app" / "static")), name="static")
@@ -71,7 +88,8 @@ SESSION: Dict[str, Any] = {
     "interview_transcripts": [],
     "processed": False,
     "digital_twin_data": {},
-    "contradictions": []
+    "contradictions": [],
+    "current_application_id": None
 }
 
 from app.i18n import TRANSLATIONS, get_translations
@@ -609,13 +627,155 @@ async def api_process(
         summary_chips.append("Digital Twin Synthesized")
         summary_chips.append(f"Rubric Scored: {scoring_res.total_score}/100")
 
+        # Persist Application, Extracted Fields, and Criteria Scores to SQLite
+        if pack_res is not None and scoring_res is not None:
+            db = SessionLocal()
+            try:
+                grid_var_val = (
+                    scoring_res.grid_variant.value
+                    if hasattr(scoring_res.grid_variant, "value")
+                    else str(scoring_res.grid_variant)
+                )
+                app_rec = ApplicationRecord(
+                    applicant_name=SESSION["applicant_name"],
+                    grid_variant=grid_var_val,
+                    total_score=scoring_res.total_score,
+                    status="EVALUATED",
+                )
+                db.add(app_rec)
+                db.flush()
+
+                # Optional evidence records
+                lic_ev_id = None
+                if lic_bytes:
+                    lic_ev = EvidenceRecord(
+                        application_id=app_rec.id,
+                        source_type="license",
+                        file_path_or_hash=hashlib.sha256(lic_bytes).hexdigest(),
+                    )
+                    db.add(lic_ev)
+                    db.flush()
+                    lic_ev_id = lic_ev.id
+
+                if work_bytes:
+                    work_ev = EvidenceRecord(
+                        application_id=app_rec.id,
+                        source_type="workshop",
+                        file_path_or_hash=hashlib.sha256(work_bytes).hexdigest(),
+                    )
+                    db.add(work_ev)
+
+                # Persist extracted fields
+                fields_added = 0
+                if getattr(pack_res, "provenance", None):
+                    for field_path, prov in pack_res.provenance.items():
+                        if hasattr(prov, "status"):
+                            prov_state = prov.status.value if hasattr(prov.status, "value") else str(prov.status)
+                            confidence = getattr(prov, "confidence", 1.0)
+                            val = getattr(prov, "value", None)
+                        elif isinstance(prov, dict):
+                            status_val = prov.get("status", "DOCUMENT_VERIFIED")
+                            prov_state = status_val.value if hasattr(status_val, "value") else str(status_val)
+                            confidence = prov.get("confidence", 1.0)
+                            val = prov.get("value", None)
+                        else:
+                            prov_state = "DOCUMENT_VERIFIED"
+                            confidence = 1.0
+                            val = str(prov)
+
+                        field_rec = ExtractedFieldRecord(
+                            application_id=app_rec.id,
+                            field_name=field_path,
+                            value=str(val) if val is not None else None,
+                            provenance_state=prov_state,
+                            confidence=float(confidence) if confidence is not None else 1.0,
+                            evidence_id=lic_ev_id if ("license" in field_path or "tin" in field_path) else None,
+                        )
+                        db.add(field_rec)
+                        fields_added += 1
+
+                # If no provenance dict entries, fall back to core application facts
+                if fields_added == 0 and getattr(pack_res, "application", None):
+                    app_obj = pack_res.application
+                    if app_obj.business_info:
+                        if app_obj.business_info.business_name:
+                            db.add(ExtractedFieldRecord(
+                                application_id=app_rec.id,
+                                field_name="business_info.company_name",
+                                value=str(app_obj.business_info.business_name),
+                                provenance_state="DOCUMENT_VERIFIED",
+                                confidence=1.0,
+                                evidence_id=lic_ev_id,
+                            ))
+                        if app_obj.business_info.tin_number:
+                            db.add(ExtractedFieldRecord(
+                                application_id=app_rec.id,
+                                field_name="business_info.tin_number",
+                                value=str(app_obj.business_info.tin_number),
+                                provenance_state="DOCUMENT_VERIFIED",
+                                confidence=1.0,
+                                evidence_id=lic_ev_id,
+                            ))
+                        if app_obj.business_info.location:
+                            db.add(ExtractedFieldRecord(
+                                application_id=app_rec.id,
+                                field_name="business_info.location",
+                                value=str(app_obj.business_info.location),
+                                provenance_state="DOCUMENT_VERIFIED",
+                                confidence=0.9,
+                            ))
+                    if app_obj.employment and app_obj.employment.total_staff is not None:
+                        db.add(ExtractedFieldRecord(
+                            application_id=app_rec.id,
+                            field_name="employment.total_staff",
+                            value=str(app_obj.employment.total_staff),
+                            provenance_state="APPLICANT_STATED",
+                            confidence=0.9,
+                        ))
+                    if app_obj.financials and app_obj.financials.sales_history:
+                        db.add(ExtractedFieldRecord(
+                            application_id=app_rec.id,
+                            field_name="financials.annual_turnover_etb",
+                            value=str(app_obj.financials.sales_history[0].revenue_etb),
+                            provenance_state="APPLICANT_STATED",
+                            confidence=0.85,
+                        ))
+
+                # Persist criteria scores with full audit trail
+                if hasattr(scoring_res, "criteria_scores") and scoring_res.criteria_scores:
+                    for cs in scoring_res.criteria_scores:
+                        crit_name = cs.criterion.value if hasattr(cs.criterion, "value") else str(cs.criterion)
+                        ev_val = getattr(cs, "evidence_value", None)
+                        score_rec = CriterionScoreRecord(
+                            application_id=app_rec.id,
+                            criterion=crit_name,
+                            awarded_points=cs.awarded_points,
+                            max_points=cs.max_points,
+                            rule_applied=getattr(cs, "rule_applied", None),
+                            evidence_value=str(ev_val) if ev_val is not None else None,
+                            provenance_state=getattr(cs, "provenance_state", None),
+                            provenance_cap_applied=getattr(cs, "provenance_cap_applied", None),
+                        )
+                        db.add(score_rec)
+
+                db.commit()
+                SESSION["current_application_id"] = app_rec.id
+            except Exception as e:
+                db.rollback()
+                print(f"[ERROR] Database persistence failed in /api/process: {e}")
+            finally:
+                db.close()
+        else:
+            print("[WARNING] Skipping DB persistence: pack_res or scoring_res is None")
+
         return JSONResponse(content={
             "status": "success",
             "message": "Dossier processed successfully.",
             "applicant": SESSION["applicant_name"],
             "readiness_pct": readiness_res.get("readiness_pct", 88),
             "score": scoring_res.total_score,
-            "summary_chips": summary_chips
+            "summary_chips": summary_chips,
+            "application_id": SESSION.get("current_application_id")
         })
 
     finally:
@@ -819,3 +979,76 @@ async def api_export():
         content=convert_to_serializable(export_payload),
         headers={"Content-Disposition": "attachment; filename=TeraGrant_Application_Pack.json"}
     )
+
+
+# =============================================================================
+# API: COMMITTEE REVIEW DECISION RECORDING
+# =============================================================================
+class ReviewRequest(BaseModel):
+    application_id: str
+    decision: str
+    notes: Optional[str] = ""
+
+
+@app.post("/api/review")
+async def api_review(req: ReviewRequest):
+    """
+    Persists an Investment Committee review decision and qualitative notes to SQLite.
+    Returns HTTP 404 if the target application does not exist.
+    """
+    db = SessionLocal()
+    try:
+        app_rec = db.query(ApplicationRecord).filter(ApplicationRecord.id == req.application_id).first()
+        if not app_rec:
+            raise HTTPException(status_code=404, detail=f"Application '{req.application_id}' not found.")
+
+        review = ReviewRecord(
+            application_id=req.application_id,
+            reviewer_decision=req.decision,
+            notes=req.notes or "",
+        )
+        db.add(review)
+        db.commit()
+        db.refresh(review)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "review_id": review.id,
+            }
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+# =============================================================================
+# API: APPLICATIONS PERSISTENCE QUERY
+# =============================================================================
+@app.get("/api/applications")
+async def api_applications():
+    """
+    Lists all persisted applications ordered by created_at descending.
+    Demonstrates state survival across server restarts.
+    """
+    db = SessionLocal()
+    try:
+        records = db.query(ApplicationRecord).order_by(ApplicationRecord.created_at.desc()).all()
+        result = [
+            {
+                "id": rec.id,
+                "applicant_name": rec.applicant_name,
+                "total_score": rec.total_score,
+                "status": rec.status,
+                "created_at": rec.created_at.isoformat() if rec.created_at else None,
+            }
+            for rec in records
+        ]
+        return JSONResponse(content=result, status_code=200)
+    finally:
+        db.close()
