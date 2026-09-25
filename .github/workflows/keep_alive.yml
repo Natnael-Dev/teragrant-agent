@@ -2,7 +2,7 @@ name: TeraGrant Keep-Alive Uptime Pinger
 
 on:
   schedule:
-    # Trigger every 10 minutes to stay safely below Render's 15-minute inactivity idle timer
+    # Trigger every 10 minutes (Note: GitHub Actions cron may experience queue delays during high load)
     - cron: '*/10 * * * *'
   workflow_dispatch:
 
@@ -15,16 +15,20 @@ jobs:
       - name: Ping TeraGrant Health Endpoint
         run: |
           echo "Sending keep-alive heartbeat to TeraGrant on Render..."
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 https://teragrant-agent.onrender.com/healthz)
+          
+          # Allow up to 90s for cold-start wake-up and prevent bash -e abort on curl timeout
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 --max-time 90 https://teragrant-agent.onrender.com/healthz || echo "000")
           echo "Initial response HTTP status: $STATUS"
-          if [ "$STATUS" -eq 200 ]; then
+
+          if [ "$STATUS" = "200" ]; then
             echo "SUCCESS: TeraGrant is awake, responsive, and healthy!"
           else
-            echo "Cold-start or transient delay detected (HTTP $STATUS). Retrying with full timeout..."
-            sleep 8
-            RETRY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 https://teragrant-agent.onrender.com/healthz)
+            echo "Cold-start or transient delay detected (HTTP $STATUS). Retrying with backoff..."
+            sleep 15
+            RETRY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 30 --max-time 90 https://teragrant-agent.onrender.com/healthz || echo "000")
             echo "Retry response HTTP status: $RETRY_STATUS"
-            if [ "$RETRY_STATUS" -eq 200 ]; then
+
+            if [ "$RETRY_STATUS" = "200" ]; then
               echo "SUCCESS: TeraGrant woke up and responded with 200 OK!"
             else
               echo "FAILED: Received HTTP status $RETRY_STATUS"
